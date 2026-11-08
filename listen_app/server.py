@@ -1,0 +1,151 @@
+from __future__ import annotations
+import argparse,hmac,json,logging,os,secrets,time
+from pathlib import Path
+from urllib.parse import urlparse,urljoin
+from flask import Flask,request,render_template,jsonify,make_response
+from . import __version__,settings,catalog,clients
+
+
+def create_app():
+    app=Flask(__name__);app.config['MAX_CONTENT_LENGTH']=6*1024*1024
+    root=settings.data_dir();root.mkdir(parents=True,exist_ok=True)
+    token_file=root/'service.token'
+    if not token_file.exists():
+        fd=os.open(token_file,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(32))
+    token=token_file.read_text().strip()
+    app.config['SERVICE_TOKEN']=token;app.config['BOUND_PORT']=0
+    from .discovery import discovery
+    from .goodreads_sync import sync
+    from .safari_bridge import safari,parse_book
+    app.register_blueprint(discovery);app.register_blueprint(sync);app.register_blueprint(safari)
+
+    @app.before_request
+    def protect_local_service():
+        port=app.config['BOUND_PORT']
+        if request.host != f'127.0.0.1:{port}':return 'Invalid host',403
+        provided=request.headers.get('X-Listen-Token') or request.cookies.get('listen_session','')
+        if not hmac.compare_digest(provided,token):return 'Open listen. to use this local service.',401
+        if request.method not in ('GET','HEAD','OPTIONS'):
+            origin=request.headers.get('Origin');referer=request.headers.get('Referer','')
+            allowed=f'http://127.0.0.1:{port}'
+            if origin!=allowed and not referer.startswith(allowed+'/'):return 'Invalid origin',403
+
+    @app.after_request
+    def response_security(response):
+        if hmac.compare_digest(request.headers.get('X-Listen-Token',''),token):
+            response.set_cookie('listen_session',token,httponly=True,samesite='Strict',path='/')
+        response.headers['X-Content-Type-Options']='nosniff'
+        response.headers['X-Frame-Options']='DENY'
+        response.headers['Referrer-Policy']='no-referrer'
+        response.headers['Content-Security-Policy']="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+        response.headers['Cache-Control']='no-store'
+        return response
+
+    @app.context_processor
+    def common():return {'config':settings.load(),'version':__version__}
+
+    @app.get('/api/health')
+    def health():return jsonify(app='listen.',version=__version__)
+
+    @app.route('/',methods=['GET','POST'])
+    def search():
+        books=[];query='';source_book=None;error=None
+        if request.method=='POST':
+            query=request.form.get('query','').strip()[:500]
+            title=request.form.get('goodreads_title','').strip()[:300];author=request.form.get('goodreads_author','').strip()[:200]
+            if title:source_book={'title':title,'author':author}
+            if query:
+                try:
+                    books=catalog.search(query)
+                    if source_book:
+                        import difflib,re
+                        clean=lambda s:' '.join(re.findall(r'\w+',s.casefold()))
+                        wanted=clean(title)
+                        books.sort(key=lambda b:(int(wanted in clean(b['title'])),int(bool(author) and clean(author) in clean(b['title'])),difflib.SequenceMatcher(None,wanted,clean(b['title'])).ratio()),reverse=True)
+                except catalog.CatalogError as exc:error=str(exc)
+        return render_template('search.html',books=books,query=query,source_book=source_book,error=error)
+
+    @app.post('/send')
+    def send():
+        d=request.get_json(silent=True)
+        if not isinstance(d,dict) or not d.get('link') or not d.get('title'):return jsonify(message='Choose a catalog result first.'),400
+        try:
+            magnet=catalog.magnet(str(d['link']))
+            return jsonify(clients.add(magnet,str(d['title']),d.get('destination','default')))
+        except (catalog.CatalogError,clients.ClientError) as exc:return jsonify(message=str(exc)),400
+
+    @app.get('/status')
+    def status():
+        try:rows=clients.torrents();error=None
+        except clients.ClientError as exc:rows=[];error=str(exc)
+        return render_template('status.html',torrents=rows,error=error)
+
+    @app.get('/api/torrents')
+    def api_torrents():
+        try:return jsonify(torrents=clients.torrents(),client=settings.load()['client']['type'])
+        except clients.ClientError as exc:return jsonify(error=str(exc)),503
+
+    @app.get('/connection')
+    def connection():
+        try:return jsonify(clients.test())
+        except clients.ClientError as exc:return jsonify(connected=False,message=str(exc),count=0,client=settings.load()['client']['type'])
+
+    @app.get('/settings')
+    def settings_page():return render_template('settings.html')
+
+    @app.route('/api/settings',methods=['GET','POST'])
+    def api_settings():
+        if request.method=='GET':return jsonify(settings.load())
+        try:
+            result=settings.save(request.get_json(silent=True))
+            return jsonify(ok=True,settings=result)
+        except ValueError as exc:return jsonify(error=str(exc)),400
+
+    @app.post('/api/folder')
+    def choose_folder():
+        data=request.get_json(silent=True) or {};key=data.get('kind');path=data.get('path')
+        if key not in ('downloads_folder','completed_folder') or not isinstance(path,str):return jsonify(error='Invalid folder.'),400
+        try:settings.save({key:path});return jsonify(ok=True,path=path)
+        except ValueError as exc:return jsonify(error=str(exc)),400
+
+    @app.get('/api/privacy')
+    def privacy():return jsonify(settings=clients.privacy())
+
+    @app.post('/goodreads/link')
+    def goodreads_link():
+        data=request.get_json(silent=True) or {};link=str(data.get('url',''));u=urlparse(link)
+        if u.scheme!='https' or u.hostname not in ('www.goodreads.com','goodreads.com') or not u.path.startswith('/book/show/') or u.username or u.password:return jsonify(error='Paste a Goodreads book URL.'),400
+        title=str(data.get('title','')).strip()[:300];author=str(data.get('author','')).strip()[:200]
+        try:
+            if not title:
+                import requests
+                url=link
+                for _ in range(4):
+                    response=requests.get(url,headers=catalog.UA,timeout=15,allow_redirects=False)
+                    if response.is_redirect:
+                        url=urljoin(url,response.headers.get('Location',''));target=urlparse(url)
+                        if target.scheme!='https' or target.hostname not in ('www.goodreads.com','goodreads.com'):raise ValueError('Open the Goodreads book in your browser and use the bookmarklet, or enter its title manually.')
+                        continue
+                    response.raise_for_status();book=parse_book(response.text,'',url);title=book['title'];author=book['author'];break
+                if not title:raise ValueError('Enter the book title and author to search.')
+            return jsonify(action='search',title=title,author=author,goodreads=link,query=(title+' '+author).strip())
+        except Exception:return jsonify(error='Goodreads did not provide a readable public page. Use the browser bookmarklet or enter the title and author manually.'),400
+
+    return app
+
+def main():
+    parser=argparse.ArgumentParser(description='listen. private loopback service')
+    parser.add_argument('--port',type=int,default=0);args=parser.parse_args()
+    app=create_app()
+    from waitress import create_server
+    service=create_server(app,host='127.0.0.1',port=args.port,threads=6)
+    port=service.effective_port;app.config['BOUND_PORT']=port
+    settings.atomic_json(settings.data_dir()/'connection.json',{'port':port,'pid':os.getpid(),'token':app.config['SERVICE_TOKEN'],'version':__version__})
+    logging.getLogger('waitress').setLevel(logging.ERROR)
+    try:service.run()
+    finally:
+        path=settings.data_dir()/'connection.json'
+        if path.exists():path.unlink()
+
+if __name__=='__main__':main()

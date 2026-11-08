@@ -1,0 +1,53 @@
+name: macOS release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[build]'
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/build_macos.py --dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: listen-macOS-${{ matrix.arch }}
+          path: |
+            dist/*.zip
+            dist/*.dmg
+            dist/SHA256SUMS-*.txt
+          if-no-files-found: error
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: listen-macOS-*
+          path: artifacts
+          merge-multiple: true
+      - name: Publish public beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --prerelease --title "listen. ${GITHUB_REF_NAME} · public beta" --notes-file docs/RELEASE_NOTES.md
