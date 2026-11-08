@@ -12,7 +12,11 @@ def safe_url(value):
     try:
         p=urlparse(value)
         if p.scheme!='https' or p.port not in (None,443) or p.username or p.password:return ''
-        if p.hostname in HOSTS:return value
+        if p.hostname in HOSTS:
+            if p.hostname in {'i.gr-assets.com','s.gr-assets.com','images.gr-assets.com'}:
+                value=re.sub(r'_S[XY]\d+_', '_SY600_', value)
+                value=re.sub(r'(/books/\d+)s(/)',r'\1l\2',value)
+            return value
         # Open Library redirects its cover images to Internet Archive cover ZIPs.
         if p.hostname=='archive.org' and re.fullmatch(r'/download/l_covers_\d+/l_covers_\d+_\d+\.zip/\d+-[SML]\.jpg',p.path):return value
         if re.fullmatch(r'ia\d+\.us\.archive\.org',p.hostname or '') and p.path=='/view_archive.php':

@@ -41,9 +41,9 @@ Adapters have automated coverage. Live end-to-end testing is performed with qBit
 
 ## Goodreads & browser connections
 
-Sign in on **goodreads.com in your browser**, not in a listen. password form. Your browser retains its own session and cookies.
+Choose **Connect Goodreads** to sign in on the real Goodreads website inside listen.’s dedicated window. Its persistent WebKit session is independent of Safari. The local service never receives your password or cookies. Manual browser and CSV imports remain available as fallbacks.
 
-- **Connect Goodreads:** sign in once in a dedicated Safari window and allow the Mac Automation prompt. Your own My Books shelves refresh automatically every five minutes while the app and that window remain open, up to 2,000 books per refresh. Metadata covers appear automatically. Reconnect if Goodreads signs you out or you close the window. Other Safari tabs are not read.
+- **Connect Goodreads:** sign in once in listen.’s dedicated Goodreads window. The app keeps its own persistent website session and refreshes your My Books shelves every five minutes while open, independently of Safari or other browsers. Reconnect if Goodreads expires the session. Up to 2,000 books per refresh; high-resolution metadata covers appear automatically.
 - **Chrome, Firefox, Edge, Brave, and other browsers:** use the **Find with listen.** bookmarklet from the browser-connection dialog, or paste a Goodreads book URL. Browser/OS permission prompts and bookmarklet policies vary; pasting is the fallback.
 - **Library export:** import a Goodreads CSV for books that cannot be read from the browser. This is a snapshot, not background account sync.
 - Local **Want to listen / Listening / Finished** progress does not change Goodreads ratings or read status. Goodreads does not provide an official OAuth connection for this app. Sessions can expire and the site’s markup can change.

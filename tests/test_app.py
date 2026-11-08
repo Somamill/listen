@@ -47,23 +47,32 @@ class ListenTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/settings',base_url=self.base,json={}).status_code,403)
         self.assertEqual(self.client.post('/api/settings',base_url=self.base,headers={'Origin':'https://evil.example','X-Listen-CSRF':token},json={}).status_code,403)
 
-    def test_goodreads_automatic_account_discovery_and_pagination(self):
+    def test_goodreads_browser_bootstrap_starts_independent_feed(self):
         header='<header><a href="/review/list/123-test">My Books</a></header>'
-        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/','html':header})
-        self.assertEqual(result.json['action'],'navigate');self.assertEqual(result.json['user_id'],'123')
+        with patch('listen_app.goodreads_feed.connect') as connect:
+            result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/','html':header})
+            self.assertEqual(result.json['action'],'background');connect.assert_called_once_with('123')
         result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/user/sign_in','html':header})
         self.assertEqual(result.status_code,400)
-        row='<table id="books"><tr class="bookalike review"><td class="cover"><img src="https://i.gr-assets.com/cover.jpg"></td><td><a class="bookTitle" href="/book/show/1">Example</a><a class="authorName">Author</a></td></tr></table>'
-        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/review/list/123','user_id':'123','page':1,'html':header+row+'<a class="next_page" href="?page=2">Next</a>'})
-        self.assertEqual(result.json['page'],2)
-        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/review/list/123','user_id':'123','page':2,'html':header+row.replace('/show/1','/show/2')})
-        self.assertEqual(result.json['action'],'complete');self.assertEqual(result.json['count'],2)
-        self.assertEqual(self.get('/goodreads/state').json['state'],'connected')
-        self.assertIn('cover.jpg',self.get('/discover').get_data(as_text=True))
-        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/','user_id':'456','html':header})
-        self.assertEqual(result.status_code,409)
-        self.post('/goodreads/connection',{'action':'disconnect'})
-        self.assertEqual(self.get('/goodreads/state').json['state'],'disconnected')
+    def test_goodreads_feed_metadata_and_profile_validation(self):
+        from listen_app.goodreads_feed import profile_id,parse_feed
+        self.assertEqual(profile_id('https://www.goodreads.com/user/show/123-name'),'123')
+        self.assertIsNone(profile_id('https://evil.example/user/show/123'))
+        rows=parse_feed(b'<rss><channel><item><title>Example</title><author_name>Author</author_name><book_id>42</book_id><book_image_url>https://i.gr-assets.com/a.jpg</book_image_url></item></channel></rss>')
+        self.assertEqual(rows[0]['goodreads'],'https://www.goodreads.com/book/show/42');self.assertIn('a.jpg',rows[0]['cover'])
+        with self.assertRaises(ValueError):parse_feed(b'<!DOCTYPE rss><rss/>')
+        with patch('listen_app.goodreads_feed.connect') as connect:
+            self.assertEqual(self.post('/goodreads/feed/connect',{'url':'https://www.goodreads.com/user/show/123'}).status_code,200);connect.assert_called_once_with('123')
+
+    def test_native_goodreads_window_pages_and_session_boundary(self):
+        header='<header><a href="/review/list/123-name">My Books</a></header>'
+        result=self.post('/goodreads/window',{'url':'https://www.goodreads.com/','html':header})
+        self.assertEqual(result.json['action'],'navigate');self.assertEqual(result.json['user_id'],'123')
+        html=header+'<table id="books"><tr class="bookalike review"><td><a class="bookTitle" href="/book/show/1">Example</a><a class="authorName">Author</a></td></tr></table>'
+        result=self.post('/goodreads/window',{'url':'https://www.goodreads.com/review/list/123','html':html,'user_id':'123','page':1})
+        self.assertEqual(result.json['action'],'complete');self.assertEqual(self.get('/goodreads/state').json['state'],'connected')
+        self.assertEqual(self.post('/goodreads/window',{'url':'https://www.goodreads.com/user/sign_in','html':html}).status_code,400)
+        self.assertEqual(self.post('/goodreads/window',{'url':'https://www.goodreads.com/','html':header,'user_id':'456'}).status_code,409)
 
     def test_cover_url_restrictions_and_metadata(self):
         from listen_app.covers import safe_url,mime
@@ -76,6 +85,7 @@ class ListenTests(unittest.TestCase):
         self.assertIsNone(mime(b'<svg onload="evil"/>'))
         book=parse_book('<h1 id="bookTitle">Test</h1><meta property="og:image" content="https://i.gr-assets.com/a.jpg">','','https://www.goodreads.com/book/show/1')
         self.assertEqual(book['cover'],'https://i.gr-assets.com/a.jpg')
+        self.assertIn('_SY600_',safe_url('https://i.gr-assets.com/books/1._SX50_.jpg'))
 
     def test_neutral_defaults_and_config_validation(self):
         self.assertEqual(settings.load()['languages'],[]);self.assertEqual(settings.load()['excluded_categories'],[])
@@ -176,7 +186,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.1.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.0');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

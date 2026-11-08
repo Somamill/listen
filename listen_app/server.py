@@ -15,6 +15,8 @@ def create_app():
         with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(32))
     token=token_file.read_text().strip()
     app.config['SERVICE_TOKEN']=token;app.config['BOUND_PORT']=0
+    from .goodreads_feed import feed
+    app.register_blueprint(feed)
     from .covers import covers
     app.register_blueprint(covers)
     csrf=hmac.new(token.encode(),b'listen.form.csrf',hashlib.sha256).hexdigest()
@@ -193,6 +195,8 @@ def main():
     parser=argparse.ArgumentParser(description='listen. private loopback service')
     parser.add_argument('--port',type=int,default=0);args=parser.parse_args()
     app=create_app()
+    from .goodreads_feed import start
+    start()
     from waitress import create_server
     service=create_server(app,host='127.0.0.1',port=args.port,threads=6)
     port=int(service.effective_port);app.config['BOUND_PORT']=port

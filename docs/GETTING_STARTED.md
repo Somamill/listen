@@ -17,7 +17,7 @@ These are examples, not automatic credentials or guaranteed defaults. Remote con
 
 ## From Goodreads to an audiobook
 
-Choose **Connect Goodreads** on Discover. Sign in in the dedicated Safari window and allow the Mac Automation prompt. listen. detects your own My Books shelf and brings over titles, authors, and metadata covers automatically. Leave that Goodreads window open; shelves refresh every five minutes while listen. is open, up to 2,000 books. Reconnect after signing out, closing the window, or changing accounts.
+Choose **Connect Goodreads** on Discover and sign in in the Goodreads window inside listen. The app retains its own website session and refreshes My Books every five minutes while open. Safari and other browsers can be closed. The connection resumes when you reopen listen. If Goodreads signs you out, sign in again in this window. Up to 2,000 books are refreshed per cycle. No password is sent to the local service.
 
 Choose **Find audiobook** on a book to search its title and author. Review the edition before adding it. listen. does not change Goodreads ratings or read status and never downloads a book just because it appears on your shelf.
 
