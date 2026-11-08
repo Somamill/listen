@@ -36,7 +36,7 @@ def cover():
     else:
         try:
             for _ in range(4):
-                with requests.get(url,timeout=(4,8),allow_redirects=False,stream=True,headers={'User-Agent':'listen/0.1 book-cover-cache'}) as response:
+                with requests.get(url,timeout=(4,8),allow_redirects=False,stream=True,headers={'User-Agent':'listen book-cover-cache'}) as response:
                     if response.is_redirect:
                         url=safe_url(urljoin(url,response.headers.get('Location','')))
                         if not url:abort(400)

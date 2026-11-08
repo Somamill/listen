@@ -242,7 +242,6 @@ if(!s.running())throw Error('Safari is closed');
 const wins=s.windows().filter(w=>w.id()===windowId);
 if(wins.length!==1 || wins[0].tabs().length!==1)throw Error('Reconnect Goodreads');
 const t=wins[0].tabs[0];const url=String(t.url());
-if(!/^https:\/\/(?:www\.)?goodreads\.com\//i.test(url))throw Error('Reconnect Goodreads');
 if(!/^https:\/\/(?:www\.)?goodreads\.com\/(?:$|[?#]|review\/list\/\d+|user\/show\/\d+)/i.test(url)){
  JSON.stringify({action:'signin'});
 }else{
