@@ -74,6 +74,14 @@ class ListenTests(unittest.TestCase):
         self.assertEqual(self.post('/goodreads/window',{'url':'https://www.goodreads.com/user/sign_in','html':html}).status_code,400)
         self.assertEqual(self.post('/goodreads/window',{'url':'https://www.goodreads.com/','html':header,'user_id':'456'}).status_code,409)
 
+    def test_goodreads_read_books_are_separated_from_up_next(self):
+        from listen_app.discovery import reading_groups
+        books=[{'title':'Finished','shelf':'read'},{'title':'Next','shelf':'to read'},{'title':'Now','shelf':'currently-reading, fiction'},{'title':'Stopped','shelf':'did-not-finish'}]
+        groups=reading_groups(books)
+        self.assertEqual(groups[0]['key'],'to-read')
+        self.assertEqual([b['title'] for b in next(g for g in groups if g['key']=='read')['books']],['Finished'])
+        self.assertEqual(next(g for g in groups if g['key']=='currently-reading')['books'][0]['title'],'Now')
+
     def test_cover_url_restrictions_and_metadata(self):
         from listen_app.covers import safe_url,mime
         for url in ['http://i.gr-assets.com/x','https://i.gr-assets.com.evil.example/x','https://127.0.0.1/x','https://user@i.gr-assets.com/x','https://i.gr-assets.com:444/x']:
@@ -186,7 +194,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.0');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

@@ -52,10 +52,15 @@ def create_app():
         return response
 
     @app.context_processor
-    def common():return {'config':settings.load(),'version':__version__,'csrf_token':csrf}
+    def common():return {'config':settings.load(),'version':__version__,'csrf_token':csrf,'welcomed':bool(settings.read_json(root/'welcome.json',{}).get('dismissed'))}
 
     @app.get('/api/health')
     def health():return jsonify(app='listen.',version=__version__)
+
+    @app.post('/api/welcome')
+    def dismiss_welcome():
+        settings.atomic_json(root/'welcome.json',{'dismissed':True})
+        return jsonify(ok=True)
 
     @app.route('/',methods=['GET','POST'])
     def search():

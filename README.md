@@ -15,6 +15,7 @@
 ## Your reading world, ready to listen
 
 - **Discover audiobook editions** by title or author, with configurable language, category, and tag filters.
+- **Keep reading shelves separate:** Want to Read, Currently Reading, Read, and Did Not Finish, with completed books in their own section.
 - **Bring a Goodreads book** from Safari, a browser bookmarklet, or a pasted link. Review the edition before sending anything to a client.
 - **Use your torrent client:** direct integrations for qBittorrent, Transmission, and Deluge Web; magnet-link handoff for other compatible clients.
 - **See actual torrent health** from available client metrics. Search previews show “Health unknown” until the client connects.

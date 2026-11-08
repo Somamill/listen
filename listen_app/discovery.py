@@ -1,4 +1,4 @@
-import csv, io, json, os, tempfile
+import csv, io, json, os, tempfile,re
 from pathlib import Path
 from urllib.parse import quote_plus, urlparse
 from flask import Blueprint, render_template, request, redirect
@@ -20,9 +20,19 @@ def read_library():
     except (OSError, ValueError):
         return []
 
+def reading_groups(books):
+    groups=[{'key':key,'label':label,'books':[]} for key,label in [('to-read','Want to Read'),('currently-reading','Currently Reading'),('read','Read'),('did-not-finish','Did Not Finish'),('other','Other Shelves')]]
+    by_key={g['key']:g for g in groups}
+    for book in books:
+        labels={re.sub(r'[ _]+','-',s.strip().casefold()) for s in book.get('shelf','').split(',')}
+        key=next((k for k in ['currently-reading','to-read','read','did-not-finish'] if k in labels),'other')
+        by_key[key]['books'].append(book)
+    return [g for g in groups if g['books']]
+
 def show_page(error=None):
     from .goodreads_sync import library_tracking
-    return render_template("discover.html", starters=[dict(title=t, author=a, genre=g, note=n, color=c, goodreads=goodreads_url(t,a),cover="https://covers.openlibrary.org/b/isbn/"+isbn+"-L.jpg?default=false") for (t,a,g,n,c),isbn in zip(STARTERS,STARTER_ISBNS)], library=library_tracking(read_library()), import_error=error, imported=request.args.get("imported"))
+    library=library_tracking(read_library())
+    return render_template("discover.html", library_groups=reading_groups(library), starters=[dict(title=t, author=a, genre=g, note=n, color=c, goodreads=goodreads_url(t,a),cover="https://covers.openlibrary.org/b/isbn/"+isbn+"-L.jpg?default=false") for (t,a,g,n,c),isbn in zip(STARTERS,STARTER_ISBNS)], library=library, import_error=error, imported=request.args.get("imported"))
 
 @discovery.get("/discover")
 def discover():

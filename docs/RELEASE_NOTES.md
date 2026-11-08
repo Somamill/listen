@@ -1,9 +1,10 @@
-## listen. 0.2.0 · public beta
+## listen. 0.2.1 · public beta
 
 A glass-inspired audiobook discovery app for macOS, with the ◒ icon.
 
 - Light, dark, and system appearance; language and category filters.
 - Persistent Goodreads sign-in inside listen., independent of Safari, and automatic My Books refresh while the app is open.
+- Separate Want to Read, Currently Reading, Read, and Did Not Finish sections from your Goodreads shelves.
 - Larger metadata covers, with a restricted private image cache and a typographic fallback.
 - Goodreads books linked to audiobook-edition searches; downloads start only when you choose an edition.
 - qBittorrent, Transmission, and Deluge Web adapters; magnet handoff for other clients.
