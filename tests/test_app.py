@@ -28,6 +28,16 @@ class ListenTests(unittest.TestCase):
         self.assertIn('HttpOnly',response.headers['Set-Cookie']);self.assertIn('SameSite=Strict',response.headers['Set-Cookie'])
         self.assertEqual(self.client.get('/discover',base_url='http://evil.example:58432',headers=self.headers).status_code,403)
         self.assertEqual(self.client.post('/api/settings',base_url=self.base,headers={'X-Listen-Token':self.app.config['SERVICE_TOKEN'],'Origin':'https://evil.example'},json={}).status_code,403)
+    def test_native_posts_and_same_origin_web_forms(self):
+        self.assertEqual(self.get('/api/health').headers['Referrer-Policy'],'same-origin')
+        response=self.client.post('/api/settings',base_url=self.base,headers={'X-Listen-Token':self.app.config['SERVICE_TOKEN']},json={'theme':'dark'})
+        self.assertEqual(response.status_code,200)
+        self.get('/discover')
+        with patch.object(catalog,'search',return_value=[]):
+            response=self.client.post('/',base_url=self.base,headers={'Referer':self.base+'/discover','Origin':'null'},data={'query':'Synthetic book'})
+            self.assertEqual(response.status_code,200)
+        response=self.client.post('/api/settings',base_url=self.base,headers={'Origin':'https://evil.example'},json={'theme':'light'})
+        self.assertEqual(response.status_code,403)
     def test_neutral_defaults_and_config_validation(self):
         self.assertEqual(settings.load()['languages'],[]);self.assertEqual(settings.load()['excluded_categories'],[])
         for data in [{'theme':'fake'},{'client':{'type':'bad'}},{'client':{'type':'qbittorrent','url':'http://user:secret@example.com'}},{'catalog_host':'127.0.0.1'},{'completed_folder':'relative/path'}]:

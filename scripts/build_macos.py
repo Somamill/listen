@@ -13,8 +13,8 @@ def main():
     dist=ROOT/'dist';dist.mkdir(exist_ok=True)
     stage_root=Path(tempfile.mkdtemp(prefix='listen-build-'))
     os.environ['PYINSTALLER_CONFIG_DIR']=str(stage_root/'cache')
-    os.environ['PYTHONPYCACHEPREFIX']=str(stage_root/'pycache')
-    os.environ['PYTHONDONTWRITEBYTECODE']='1'
+    os.environ.pop('PYTHONPYCACHEPREFIX',None)
+    os.environ.pop('PYTHONDONTWRITEBYTECODE',None)
     os.environ['PYTHONPATH']=str(ROOT)
     run([sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--name','listen-server','--distpath',stage_root/'backend','--workpath',stage_root/'work','--specpath',stage_root,'--paths',ROOT,'--add-data',f'{ROOT}/listen_app/templates:listen_app/templates','--add-data',f'{ROOT}/listen_app/static:listen_app/static','--collect-submodules','keyring.backends','--copy-metadata','keyring','--copy-metadata','qbittorrent-api','--copy-metadata','transmission-rpc','--copy-metadata','deluge-web-client','listen_server.py'])
     app=stage_root/'listen.app'

@@ -29,7 +29,9 @@ def create_app():
         if request.method not in ('GET','HEAD','OPTIONS'):
             origin=request.headers.get('Origin');referer=request.headers.get('Referer','')
             allowed=f'http://127.0.0.1:{port}'
-            if origin!=allowed and not referer.startswith(allowed+'/'):return 'Invalid origin',403
+            native_auth=hmac.compare_digest(request.headers.get('X-Listen-Token',''),token)
+            same_origin=(origin==allowed or (origin in (None,'null') and referer.startswith(allowed+'/')))
+            if not same_origin and not (origin is None and native_auth):return 'Invalid origin',403
 
     @app.after_request
     def response_security(response):
@@ -37,7 +39,7 @@ def create_app():
             response.set_cookie('listen_session',token,httponly=True,samesite='Strict',path='/')
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['X-Frame-Options']='DENY'
-        response.headers['Referrer-Policy']='no-referrer'
+        response.headers['Referrer-Policy']='same-origin'
         response.headers['Content-Security-Policy']="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
         response.headers['Cache-Control']='no-store'
         return response

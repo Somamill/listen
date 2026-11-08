@@ -135,7 +135,7 @@ final class ListenDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         guard let base = serviceURL else { return }
         let values = ["query": book["query"] as? String ?? "", "goodreads_title": book["title"] as? String ?? "", "goodreads_author": book["author"] as? String ?? ""]
         let encoded = values.map { key, value in key + "=" + (value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "") }.joined(separator: "&")
-        var r = request("/")!; r.httpMethod = "POST"; r.httpBody = encoded.data(using: .utf8); r.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type"); r.setValue(base.absoluteString + "/discover", forHTTPHeaderField: "Referer")
+        var r = request("/")!; r.httpMethod = "POST"; r.httpBody = encoded.data(using: .utf8); r.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type"); r.setValue(base.absoluteString + "/discover", forHTTPHeaderField: "Referer"); r.setValue(base.absoluteString, forHTTPHeaderField: "Origin")
         web.load(r); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
     func captureSafari(mode: String, background: Bool = false) {
