@@ -19,7 +19,7 @@
 - **Use your torrent client:** direct integrations for qBittorrent, Transmission, and Deluge Web; magnet-link handoff for other compatible clients.
 - **See actual torrent health** from available client metrics. Search previews show “Health unknown” until the client connects.
 - **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. Local qBittorrent and Deluge can stage partial files before moving completed downloads.
-- **Make it yours:** light glass, dark glass, or system appearance, with a native Mac window, directory picker, keyboard shortcuts, and optional Touch ID / Mac-password window lock.
+- **Make it yours:** light glass, dark glass, or system appearance, with a native Mac window, directory picker, keyboard shortcuts, optional Touch ID / Mac-password window lock, and a manual official-release update check.
 - **Keep your setup local:** client passwords use the system credential store. Settings and reading progress stay on your machine; no hosted listen. account or analytics service.
 
 ## Download

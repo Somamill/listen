@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build a self-contained listen.app and release archives on the current Mac architecture."""
-import argparse,hashlib,os,platform,plistlib,shutil,subprocess,sys,tempfile
+import argparse,ast,hashlib,os,platform,plistlib,shutil,subprocess,sys,tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.1.0'
+VERSION=next(ast.literal_eval(node.value) for node in ast.parse((ROOT/'listen_app/__init__.py').read_text()).body if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='__version__' for target in node.targets))
 def run(args,**kwargs):subprocess.run([str(v) for v in args],check=True,**kwargs)
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--dmg',action='store_true');args=parser.parse_args()

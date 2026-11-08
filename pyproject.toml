@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "listen-desktop"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A glass-inspired macOS audiobook discovery app with Goodreads connections and torrent-client integrations."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [{name = "listen. contributors"}]
 keywords = ["audiobooks", "goodreads", "macos", "qbittorrent", "transmission", "deluge"]
-dependencies = ["Flask>=3.1,<4", "requests>=2.32,<3", "beautifulsoup4>=4.13,<5", "waitress>=3,<4", "qbittorrent-api>=2025.1", "transmission-rpc>=7,<8", "deluge-web-client>=1", "keyring>=25,<27"]
+dependencies = ["Flask>=3.1,<4", "requests>=2.32,<3", "beautifulsoup4>=4.13,<5", "waitress>=3,<4", "qbittorrent-api>=2025.1", "transmission-rpc>=7,<8", "deluge-web-client>=1", "keyring>=25,<27", "packaging>=24,<27"]
 
 [project.optional-dependencies]
 build = ["pyinstaller>=6.15,<7", "pip-audit>=2.9,<3"]
@@ -28,3 +28,6 @@ include = ["listen_app*"]
 
 [tool.setuptools.package-data]
 listen_app = ["templates/*.html", "static/css/*.css", "static/images/*.png", "static/js/*.js"]
+
+[tool.setuptools.dynamic]
+version = {attr = "listen_app.__version__"}

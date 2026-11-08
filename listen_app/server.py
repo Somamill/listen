@@ -102,6 +102,25 @@ def create_app():
             return jsonify(ok=True,settings=result)
         except ValueError as exc:return jsonify(error=str(exc)),400
 
+    @app.get('/api/update')
+    def check_update():
+        try:
+            import requests
+            from packaging.version import Version,InvalidVersion
+            response=requests.get('https://api.github.com/repos/Somamill/listen/releases',params={'per_page':10},headers={'Accept':'application/vnd.github+json'},timeout=10)
+            response.raise_for_status()
+            candidates=[]
+            for release in response.json():
+                if release.get('draft'):continue
+                url=release.get('html_url','')
+                if not url.startswith('https://github.com/Somamill/listen/releases/'):continue
+                try:candidates.append((Version(release.get('tag_name','').lstrip('v')),release))
+                except InvalidVersion:continue
+            if not candidates:return jsonify(current=__version__,available=False,message='No public release is available yet.')
+            version,release=max(candidates,key=lambda row:row[0])
+            return jsonify(current=__version__,latest=str(version),available=version>Version(__version__),url=release['html_url'],prerelease=bool(release.get('prerelease')),message='A newer release is available.' if version>Version(__version__) else 'You are using the latest published version.')
+        except Exception:return jsonify(error='Could not check GitHub releases. Please try again later.'),503
+
     @app.post('/api/folder')
     def choose_folder():
         data=request.get_json(silent=True) or {};key=data.get('kind');path=data.get('path')
@@ -141,7 +160,7 @@ def main():
     from waitress import create_server
     service=create_server(app,host='127.0.0.1',port=args.port,threads=6)
     port=service.effective_port;app.config['BOUND_PORT']=port
-    settings.atomic_json(settings.data_dir()/'connection.json',{'port':port,'pid':os.getpid(),'token':app.config['SERVICE_TOKEN'],'version':__version__})
+    settings.atomic_json(settings.data_dir()/'connection.json',{'port':port,'pid':os.getpid(),'owner_pid':int(os.environ.get('LISTEN_OWNER_PID','0')),'token':app.config['SERVICE_TOKEN'],'version':__version__})
     logging.getLogger('waitress').setLevel(logging.ERROR)
     try:service.run()
     finally:

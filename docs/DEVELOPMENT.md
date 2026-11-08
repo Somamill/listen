@@ -21,7 +21,7 @@ python -m pip_audit
 
 Tests use temporary local data and mocked client adapters. They do not download books, contact trackers, or read real browser sessions. Live-client checks are separate; do not treat adapter tests as certification of every server version.
 
-Set `LISTEN_DATA_DIR` to a temporary directory to isolate development, previews, and screenshots. Never publish that directory. The server writes a random port, process ID, and local token to `connection.json`; the native shell validates the process before loading the UI. Running the service alone does not expose an unauthenticated browser page.
+Set `LISTEN_DATA_DIR` to a temporary directory to isolate development, previews, and screenshots. Never publish that directory. The server writes a random port, process ID, and local token to `connection.json`; the native shell validates its own launcher identity before loading the UI. Running the service alone does not expose an unauthenticated browser page.
 
 ## Build
 
