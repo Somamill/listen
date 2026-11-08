@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse,hmac,json,logging,os,secrets,time
+import argparse,hashlib,hmac,threading,json,logging,os,secrets,time
 from pathlib import Path
 from urllib.parse import urlparse,urljoin
 from flask import Flask,request,render_template,jsonify,make_response
@@ -15,6 +15,9 @@ def create_app():
         with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(32))
     token=token_file.read_text().strip()
     app.config['SERVICE_TOKEN']=token;app.config['BOUND_PORT']=0
+    from .covers import covers
+    app.register_blueprint(covers)
+    csrf=hmac.new(token.encode(),b'listen.form.csrf',hashlib.sha256).hexdigest()
     from .discovery import discovery
     from .goodreads_sync import sync
     from .safari_bridge import safari,parse_book
@@ -31,7 +34,9 @@ def create_app():
             allowed=f'http://127.0.0.1:{port}'
             native_auth=hmac.compare_digest(request.headers.get('X-Listen-Token',''),token)
             same_origin=(origin==allowed or (origin in (None,'null') and referer.startswith(allowed+'/')))
-            if not same_origin and not (origin is None and native_auth):return 'Invalid origin',403
+            form_auth=hmac.compare_digest(request.headers.get('X-Listen-CSRF') or request.form.get('_csrf',''),csrf)
+            if origin not in (None,'null',allowed):return 'Invalid origin',403
+            if not (same_origin or native_auth or form_auth):return 'Invalid origin',403
 
     @app.after_request
     def response_security(response):
@@ -45,7 +50,7 @@ def create_app():
         return response
 
     @app.context_processor
-    def common():return {'config':settings.load(),'version':__version__}
+    def common():return {'config':settings.load(),'version':__version__,'csrf_token':csrf}
 
     @app.get('/api/health')
     def health():return jsonify(app='listen.',version=__version__)
@@ -79,16 +84,26 @@ def create_app():
 
     @app.get('/status')
     def status():
-        try:rows=clients.torrents();error=None
-        except clients.ClientError as exc:rows=[];error=str(exc)
-        return render_template('status.html',torrents=rows,error=error)
+        return render_template('status.html',torrents=[],error=None)
 
+    library_scan={'items':[],'error':None,'scanning':False,'updated':0}
+    scan_lock=threading.Lock()
     @app.get('/library')
     def library_page():
-        from . import library
-        try:rows,error=library.items()
-        except OSError:rows,error=[],'The local downloads folder could not be read.'
-        return render_template('library.html',items=rows,error=error)
+        return render_template('library.html',items=[],error=None)
+
+    @app.get('/api/library')
+    def local_library():
+        with scan_lock:
+            if not library_scan['scanning'] and time.time()-library_scan['updated']>15:
+                library_scan['scanning']=True
+                def scan():
+                    from . import library
+                    try:rows,error=library.items()
+                    except Exception:rows,error=[],'The downloads folder could not be read. Check its access in Settings.'
+                    with scan_lock:library_scan.update(items=rows,error=error,scanning=False,updated=time.time())
+                threading.Thread(target=scan,daemon=True).start()
+            return jsonify(library_scan)
 
     @app.post('/library/transfer')
     def transfer_library():

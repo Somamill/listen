@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from flask import Blueprint,request,jsonify
 from .discovery import STORE,goodreads_url
+from .covers import safe_url
 sync=Blueprint('goodreads_sync',__name__)
 ROOT=STORE.parent
 STATE=ROOT/'goodreads-sync-state.json'
@@ -61,7 +62,7 @@ def receive():
             rating=str(row.get('rating',''))
             try:rating=f'{float(rating):.2f}' if 0<float(rating)<=5 else ''
             except (ValueError,TypeError):rating=''
-            books.append(dict(title=title,author=author,goodreads=link,shelf=str(row.get('shelf','your library'))[:100],rating=rating,color=['moss','rust','slate','gold','rose','ink'][len(books)%6]))
+            books.append(dict(title=title,author=author,goodreads=link,shelf=str(row.get('shelf','your library'))[:100],rating=rating,cover=safe_url(row.get('cover','')),color=['moss','rust','slate','gold','rose','ink'][len(books)%6]))
         changed=books!=read(STORE,[])
         save(STORE,books);result.update(last_sync=time.time(),count=len(books));result['changed']=changed
     save(STATE,result)

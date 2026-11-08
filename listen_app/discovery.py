@@ -8,6 +8,8 @@ from . import settings
 STORE = settings.data_dir()/"goodreads-library.json"
 STARTERS = [("Ready Player One", "Ernest Cline", "Science fiction", "An adventure for your next long journey.", "moss"), ("The Martian", "Andy Weir", "Science fiction", "A little ingenuity. A very long way from home.", "rust"), ("World War Z", "Max Brooks", "Fiction", "A world of voices. One extraordinary story.", "slate"), ("The Help", "Kathryn Stockett", "Historical fiction", "Find the voices at the heart of the story.", "gold"), ("Bossypants", "Tina Fey", "Memoir", "Make room for a lighter kind of listen.", "rose"), ("The Book Thief", "Markus Zusak", "Historical fiction", "Settle into a story about the power of words.", "ink")]
 
+STARTER_ISBNS=['9780307887443','9780804139021','9780307346612','9780399155345','9780316056861','9780375831003']
+
 def goodreads_url(title, author):
     return "https://www.goodreads.com/search?q=" + quote_plus(title + " " + author)
 
@@ -20,7 +22,7 @@ def read_library():
 
 def show_page(error=None):
     from .goodreads_sync import library_tracking
-    return render_template("discover.html", starters=[dict(title=t, author=a, genre=g, note=n, color=c, goodreads=goodreads_url(t,a)) for t,a,g,n,c in STARTERS], library=library_tracking(read_library()), import_error=error, imported=request.args.get("imported"))
+    return render_template("discover.html", starters=[dict(title=t, author=a, genre=g, note=n, color=c, goodreads=goodreads_url(t,a),cover="https://covers.openlibrary.org/b/isbn/"+isbn+"-L.jpg?default=false") for (t,a,g,n,c),isbn in zip(STARTERS,STARTER_ISBNS)], library=library_tracking(read_library()), import_error=error, imported=request.args.get("imported"))
 
 @discovery.get("/discover")
 def discover():
@@ -51,7 +53,9 @@ def import_library():
                 numeric=float(rating)
                 rating=f"{numeric:.2f}" if 0<numeric<=5 else ""
             except (ValueError, TypeError): rating=""
-            books.append(dict(title=title,author=author,goodreads=link,shelf=shelf,rating=rating,color=["moss","rust","slate","gold","rose","ink"][len(books)%6]))
+            isbn=''.join(c for c in (row.get('ISBN13') or row.get('ISBN') or '') if c.isdigit() or c.upper()=='X')
+            cover='https://covers.openlibrary.org/b/isbn/'+isbn+'-L.jpg?default=false' if len(isbn) in (10,13) else ''
+            books.append(dict(cover=cover,title=title,author=author,goodreads=link,shelf=shelf,rating=rating,color=["moss","rust","slate","gold","rose","ink"][len(books)%6]))
             if len(books)>=500: break
         if not books: raise ValueError("This export does not contain any books.")
         STORE.parent.mkdir(parents=True,exist_ok=True)

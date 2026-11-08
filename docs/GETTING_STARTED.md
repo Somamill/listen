@@ -17,11 +17,11 @@ These are examples, not automatic credentials or guaranteed defaults. Remote con
 
 ## From Goodreads to an audiobook
 
-Choose **Bring a Goodreads book**. Sign in to Goodreads in your selected browser. For Safari, open a Goodreads book and use **Use book open in Safari**. For another browser, drag the bookmarklet into its bookmarks bar and click it on a Goodreads book, or paste the URL into listen.
+Choose **Connect Goodreads** on Discover. Sign in in the dedicated Safari window and allow the Mac Automation prompt. listen. detects your own My Books shelf and brings over titles, authors, and metadata covers automatically. Leave that Goodreads window open; shelves refresh every five minutes while listen. is open, up to 2,000 books. Reconnect after signing out, closing the window, or changing accounts.
 
-listen. searches by title and author and ranks likely editions first. It cannot prove two editions are identical. No book is downloaded just because it was sent from Goodreads.
+Choose **Find audiobook** on a book to search its title and author. Review the edition before adding it. listen. does not change Goodreads ratings or read status and never downloads a book just because it appears on your shelf.
 
-For a shelf, open **My Books** in Safari and import the visible page. Open additional pages to add them. You can enable refresh of the active shelf in Settings. A Goodreads CSV export is also supported.
+Under **Other ways to bring your books**, a CSV export, manual Safari-page import, and a browser bookmarklet/pasted book link remain available. Automatic account connection currently uses Safari on macOS; other browsers use those fallbacks.
 
 ## Destinations and cloud drives
 

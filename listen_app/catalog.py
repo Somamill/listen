@@ -4,6 +4,7 @@ from urllib.parse import urljoin,urlparse,urlencode
 import requests
 from bs4 import BeautifulSoup
 from . import settings
+from .covers import image_from
 UA={'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'}
 ALIASES={'english':'English','englisch':'English','german':'German','deutsch':'German','french':'French','français':'French','spanish':'Spanish','español':'Spanish','italian':'Italian','italiano':'Italian','dutch':'Dutch','nederlands':'Dutch','portuguese':'Portuguese','russian':'Russian','japanese':'Japanese'}
 class CatalogError(RuntimeError):pass
@@ -62,7 +63,7 @@ def search(query,cfg=None):
             def field(label):
                 m=re.search(label+r':\s*([^\s]+(?:\s*(?:kbps|GB|MB|KB))?)',text,re.I)
                 return m.group(1)[:40] if m else 'Not listed'
-            results.append(dict(title=a.get_text(' ',strip=True),link=link,language=meta['language'],category=meta['category'],format=field('Format'),file_size=field('File Size'),bitrate=field('Bitrate'),health={'kind':'unknown','label':'Health unknown','detail':'Live peer health is available only after the client connects. No tracker is contacted by this preview.'}))
+            results.append(dict(cover=image_from(post.select_one('.postContent img, .postContent p img, img')),title=a.get_text(' ',strip=True),link=link,language=meta['language'],category=meta['category'],format=field('Format'),file_size=field('File Size'),bitrate=field('Bitrate'),health={'kind':'unknown','label':'Health unknown','detail':'Live peer health is available only after the client connects. No tracker is contacted by this preview.'}))
     return results
 
 def magnet(details_url,cfg=None):

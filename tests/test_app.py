@@ -38,6 +38,45 @@ class ListenTests(unittest.TestCase):
             self.assertEqual(response.status_code,200)
         response=self.client.post('/api/settings',base_url=self.base,headers={'Origin':'https://evil.example'},json={'theme':'light'})
         self.assertEqual(response.status_code,403)
+    def test_webkit_form_without_origin_uses_page_csrf(self):
+        response=self.get('/');soup=BeautifulSoup(response.get_data(as_text=True),'html.parser')
+        token=soup.select_one('meta[name="listen-csrf"]')['content']
+        with patch.object(catalog,'search',return_value=[]):
+            response=self.client.post('/',base_url=self.base,data={'query':'Test','_csrf':token})
+            self.assertEqual(response.status_code,200)
+        self.assertEqual(self.client.post('/api/settings',base_url=self.base,json={}).status_code,403)
+        self.assertEqual(self.client.post('/api/settings',base_url=self.base,headers={'Origin':'https://evil.example','X-Listen-CSRF':token},json={}).status_code,403)
+
+    def test_goodreads_automatic_account_discovery_and_pagination(self):
+        header='<header><a href="/review/list/123-test">My Books</a></header>'
+        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/','html':header})
+        self.assertEqual(result.json['action'],'navigate');self.assertEqual(result.json['user_id'],'123')
+        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/user/sign_in','html':header})
+        self.assertEqual(result.status_code,400)
+        row='<table id="books"><tr class="bookalike review"><td class="cover"><img src="https://i.gr-assets.com/cover.jpg"></td><td><a class="bookTitle" href="/book/show/1">Example</a><a class="authorName">Author</a></td></tr></table>'
+        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/review/list/123','user_id':'123','page':1,'html':header+row+'<a class="next_page" href="?page=2">Next</a>'})
+        self.assertEqual(result.json['page'],2)
+        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/review/list/123','user_id':'123','page':2,'html':header+row.replace('/show/1','/show/2')})
+        self.assertEqual(result.json['action'],'complete');self.assertEqual(result.json['count'],2)
+        self.assertEqual(self.get('/goodreads/state').json['state'],'connected')
+        self.assertIn('cover.jpg',self.get('/discover').get_data(as_text=True))
+        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/','user_id':'456','html':header})
+        self.assertEqual(result.status_code,409)
+        self.post('/goodreads/connection',{'action':'disconnect'})
+        self.assertEqual(self.get('/goodreads/state').json['state'],'disconnected')
+
+    def test_cover_url_restrictions_and_metadata(self):
+        from listen_app.covers import safe_url,mime
+        for url in ['http://i.gr-assets.com/x','https://i.gr-assets.com.evil.example/x','https://127.0.0.1/x','https://user@i.gr-assets.com/x','https://i.gr-assets.com:444/x']:
+            self.assertEqual(safe_url(url),'')
+        self.assertEqual(self.get('/cover?url=https://127.0.0.1/a').status_code,400)
+        self.assertEqual(safe_url('https://archive.org/download/arbitrary/file.jpg'),'')
+        self.assertEqual(safe_url('https://ia123.us.archive.org/view_archive.php?archive=/private&file=x'),'')
+        self.assertTrue(safe_url('https://archive.org/download/l_covers_0008/l_covers_0008_18.zip/0008185004-L.jpg'))
+        self.assertIsNone(mime(b'<svg onload="evil"/>'))
+        book=parse_book('<h1 id="bookTitle">Test</h1><meta property="og:image" content="https://i.gr-assets.com/a.jpg">','','https://www.goodreads.com/book/show/1')
+        self.assertEqual(book['cover'],'https://i.gr-assets.com/a.jpg')
+
     def test_neutral_defaults_and_config_validation(self):
         self.assertEqual(settings.load()['languages'],[]);self.assertEqual(settings.load()['excluded_categories'],[])
         for data in [{'theme':'fake'},{'client':{'type':'bad'}},{'client':{'type':'qbittorrent','url':'http://user:secret@example.com'}},{'catalog_host':'127.0.0.1'},{'completed_folder':'relative/path'}]:
