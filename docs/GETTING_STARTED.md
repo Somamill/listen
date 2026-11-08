@@ -25,7 +25,7 @@ For a shelf, open **My Books** in Safari and import the visible page. Open addit
 
 ## Destinations and cloud drives
 
-Default downloads use the folder selected in Settings. An optional completed-books destination adds a second action to search results. For a local qBittorrent or Deluge client, partial files can stay in listen.’s local staging folder before moving on completion. Transmission’s incomplete-directory behavior is configured in Transmission.
+Downloads finish in the local folder selected in Settings. Partial files can be staged locally by qBittorrent or Deluge; Transmission manages its own incomplete directory. Nothing moves to iCloud automatically. Use **Send to library** on a completed download, or open **Local library** to transfer an audiobook that is no longer in the connected client. Choose the library destination in Settings. Existing destination items are not overwritten.
 
 A remote client cannot download directly into a path that exists only on your Mac. Cloud providers can evict local files; keep books downloaded if you continue seeding them. Moving or renaming files outside the client can cause missing-file errors.
 

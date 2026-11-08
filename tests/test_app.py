@@ -16,6 +16,7 @@ class ListenTests(unittest.TestCase):
         self.app=create_app();self.app.config['BOUND_PORT']=58432;self.client=self.app.test_client();self.base='http://127.0.0.1:58432'
         self.headers={'X-Listen-Token':self.app.config['SERVICE_TOKEN'],'Origin':self.base,'Referer':self.base+'/discover'}
         self.cfg=copy.deepcopy(settings.DEFAULTS);self.cfg['downloads_folder']=TEMP.name;self.cfg['completed_folder']=TEMP.name
+        settings.atomic_json(Path(TEMP.name)/'settings.json',{'downloads_folder':str(Path(TEMP.name)/'downloads')})
     def get(self,path,headers=None):return self.client.get(path,base_url=self.base,headers=self.headers if headers is None else headers)
     def post(self,path,data=None,**kwargs):return self.client.post(path,base_url=self.base,headers=self.headers,json=data,**kwargs)
     def meta(self,lang='English',category='History',tag=''):
@@ -52,7 +53,7 @@ class ListenTests(unittest.TestCase):
     def test_qbittorrent_add_stages_and_preserves_folder(self):
         cfg=copy.deepcopy(self.cfg);cfg['client']['url']='http://127.0.0.1:8080'
         with patch.object(clients,'_connect') as connect:
-            clients.add('magnet:?xt=urn:btih:'+'a'*40,'../../A book','completed',cfg)
+            clients.add('magnet:?xt=urn:btih:'+'a'*40,'../../A book','default',cfg)
             kw=connect.return_value.torrents_add.call_args.kwargs
             self.assertTrue(kw['use_download_path']);self.assertFalse(kw['use_auto_torrent_management']);self.assertEqual(kw['save_path'],str(Path(TEMP.name)/'A book'))
     def test_magnet_handoff_does_not_connect(self):
@@ -70,10 +71,10 @@ class ListenTests(unittest.TestCase):
     def test_deluge_and_transmission_add_adapters(self):
         cfg=copy.deepcopy(self.cfg);cfg['client']['type']='transmission';cfg['stage_incomplete']=False
         with patch.object(clients,'_connect') as c:
-            clients.add('magnet:?xt=urn:btih:'+'a'*40,'Book','completed',cfg);c.return_value.add_torrent.assert_called_once()
+            clients.add('magnet:?xt=urn:btih:'+'a'*40,'Book','default',cfg);c.return_value.add_torrent.assert_called_once()
         cfg['client']['type']='deluge';cfg['stage_incomplete']=True
         with patch.object(clients,'_connect') as c:
-            clients.add('magnet:?xt=urn:btih:'+'a'*40,'Book','completed',cfg)
+            clients.add('magnet:?xt=urn:btih:'+'a'*40,'Book','default',cfg)
             options=c.return_value.add_torrent_magnet.call_args.kwargs['torrent_options'];self.assertTrue(options.move_completed)
     def test_goodreads_book_metadata_and_unauthorized_import(self):
         html='<h1 data-testid="bookTitle">A Book</h1><span class="ContributorLink__name">An Author</span>'
@@ -93,13 +94,36 @@ class ListenTests(unittest.TestCase):
             text=response.get_data(as_text=True);self.assertLess(text.index('A Book - An Author'),text.index('Another book'))
     def test_all_pages_and_connection_error_render(self):
         with patch.object(clients,'torrents',return_value=[]):
-            for path in ['/','/discover','/settings','/status']:self.assertEqual(self.get(path).status_code,200,path)
+            for path in ['/','/discover','/settings','/status','/library']:self.assertEqual(self.get(path).status_code,200,path)
         with patch.object(clients,'torrents',side_effect=clients.ClientError('Unavailable')):self.assertEqual(self.get('/api/torrents').status_code,503)
     def test_catalog_does_not_invent_trackers(self):
         info='b'*40
         soup=BeautifulSoup(f'<div class="post"><div class="postInfo">Category: History Language: English Keywords: Test</div><table><tr><td>Info Hash</td><td>{info}</td></tr></table></div>','html.parser')
         with patch.object(catalog,'fetch',return_value=soup):
             link=catalog.magnet('https://audiobookbay.lu/test',self.cfg);self.assertIn(info,link);self.assertNotIn('&tr=',link)
+    def test_explicit_library_move_preserves_managed_torrents(self):
+        cfg=copy.deepcopy(self.cfg)
+        target=Path(TEMP.name)/'manual-library';target.mkdir(exist_ok=True);cfg['completed_folder']=str(target)
+        row={'id':'hash','name':'Book','progress':1,'save_path':str(Path(TEMP.name)/'local'),'content_path':str(Path(TEMP.name)/'local/Book')}
+        with patch.object(clients,'torrents',return_value=[row]),patch.object(clients,'_connect') as connect:
+            result=clients.move_completed('hash',cfg)
+            self.assertTrue(result['moving']);connect.return_value.torrents_set_location.assert_called_once_with(location=str(target),torrent_hashes='hash')
+        row['progress']=.5
+        with patch.object(clients,'torrents',return_value=[row]),self.assertRaises(clients.ClientError):clients.move_completed('hash',cfg)
+    def test_local_orphan_transfer_and_collision_safety(self):
+        from listen_app import library
+        local=Path(TEMP.name)/'local';cloud=Path(TEMP.name)/'cloud';local.mkdir(exist_ok=True);cloud.mkdir(exist_ok=True)
+        item=local/'Test recording.m4b';item.write_text('Synthetic file for transfer testing, not audiobook content.')
+        cfg=copy.deepcopy(self.cfg);cfg['downloads_folder']=str(local);cfg['completed_folder']=str(cloud)
+        with patch.object(clients,'torrents',return_value=[]):
+            result=library.transfer(item.name,cfg);self.assertTrue(result['moved']);self.assertFalse(item.exists());self.assertTrue((cloud/item.name).exists())
+            item.write_text('Another synthetic source.')
+            with self.assertRaises(clients.ClientError):library.transfer(item.name,cfg)
+            self.assertTrue(item.exists())
+            with self.assertRaises(clients.ClientError):library.transfer('../outside.m4b',cfg)
+        item.unlink();(cloud/item.name).unlink()
+    def test_downloads_never_auto_send_to_library(self):
+        with self.assertRaises(clients.ClientError):clients.add('magnet:?xt=urn:btih:'+'a'*40,'Book','completed',self.cfg)
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:

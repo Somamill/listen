@@ -18,7 +18,7 @@
 - **Bring a Goodreads book** from Safari, a browser bookmarklet, or a pasted link. Review the edition before sending anything to a client.
 - **Use your torrent client:** direct integrations for qBittorrent, Transmission, and Deluge Web; magnet-link handoff for other compatible clients.
 - **See actual torrent health** from available client metrics. Search previews show “Health unknown” until the client connects.
-- **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. Local qBittorrent and Deluge can stage partial files before moving completed downloads.
+- **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. Downloads finish locally first. Use **Send to library** to move completed items when you choose; managed torrents move through the client so seeding can continue.
 - **Make it yours:** light glass, dark glass, or system appearance, with a native Mac window, directory picker, keyboard shortcuts, optional Touch ID / Mac-password window lock, and a manual official-release update check.
 - **Keep your setup local:** client passwords use the system credential store. Settings and reading progress stay on your machine; no hosted listen. account or analytics service.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build a self-contained listen.app and release archives on the current Mac architecture."""
-import argparse,ast,hashlib,os,platform,plistlib,shutil,subprocess,sys,tempfile
+import argparse,ast,hashlib,json,os,platform,plistlib,shutil,signal,subprocess,sys,tempfile,time,urllib.request,urllib.error
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 VERSION=next(ast.literal_eval(node.value) for node in ast.parse((ROOT/'listen_app/__init__.py').read_text()).body if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='__version__' for target in node.targets))
@@ -12,11 +12,15 @@ def main():
     arch='arm64' if platform.machine()=='arm64' else 'x86_64'
     dist=ROOT/'dist';dist.mkdir(exist_ok=True)
     stage_root=Path(tempfile.mkdtemp(prefix='listen-build-'))
-    run([sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--name','listen-server','--distpath',stage_root/'backend','--workpath',stage_root/'work','--specpath',stage_root,'--add-data',f'{ROOT}/listen_app/templates:listen_app/templates','--add-data',f'{ROOT}/listen_app/static:listen_app/static','--collect-submodules','keyring.backends','--copy-metadata','keyring','--copy-metadata','qbittorrent-api','--copy-metadata','transmission-rpc','--copy-metadata','deluge-web-client','listen_server.py'])
+    os.environ['PYINSTALLER_CONFIG_DIR']=str(stage_root/'cache')
+    os.environ['PYTHONPYCACHEPREFIX']=str(stage_root/'pycache')
+    os.environ['PYTHONDONTWRITEBYTECODE']='1'
+    os.environ['PYTHONPATH']=str(ROOT)
+    run([sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--name','listen-server','--distpath',stage_root/'backend','--workpath',stage_root/'work','--specpath',stage_root,'--paths',ROOT,'--add-data',f'{ROOT}/listen_app/templates:listen_app/templates','--add-data',f'{ROOT}/listen_app/static:listen_app/static','--collect-submodules','keyring.backends','--copy-metadata','keyring','--copy-metadata','qbittorrent-api','--copy-metadata','transmission-rpc','--copy-metadata','deluge-web-client','listen_server.py'])
     app=stage_root/'listen.app'
     if app.exists():shutil.rmtree(app)
     contents=app/'Contents';(contents/'MacOS').mkdir(parents=True);(contents/'Resources').mkdir()
-    shutil.copytree(dist/'backend/listen-server',contents/'Resources/server',symlinks=True)
+    shutil.copytree(stage_root/'backend/listen-server',contents/'Resources/server',symlinks=True)
     shutil.copy2(ROOT/'native/AppIcon.icns',contents/'Resources/AppIcon.icns')
     for name in ['LICENSE','THIRD_PARTY_NOTICES.md']:
         if (ROOT/name).exists():shutil.copy2(ROOT/name,contents/'Resources'/name)
@@ -43,6 +47,40 @@ def main():
     # PyInstaller signs embedded binaries first; sign the outer native bundle last.
     run(['codesign','--force','--entitlements',ent,'--sign',os.environ.get('LISTEN_SIGN_IDENTITY','-'),app])
     run(['codesign','--verify','--deep','--strict',app])
+    # Reject stale frozen bytecode before publishing a package.
+    from PyInstaller.archive.readers import CArchiveReader
+    import types
+    archive_reader=CArchiveReader(str(contents/'Resources/server/listen-server'))
+    frozen=archive_reader.open_embedded_archive('PYZ.pyz').extract('listen_app.server')
+    entry=next(value for value in frozen.co_consts if isinstance(value,types.CodeType) and value.co_name=='main')
+    if 'owner_pid' not in str(entry.co_consts):raise RuntimeError('Frozen service does not match the current launcher handshake.')
+    # Exercise the actual frozen service/launcher protocol before making archives.
+    check_root=stage_root/'service-check';check_root.mkdir()
+    env=dict(os.environ,LISTEN_DATA_DIR=str(check_root),LISTEN_OWNER_PID=str(os.getpid()))
+    log_path=stage_root/'service-check.log'
+    with log_path.open('wb') as log:
+        process=subprocess.Popen([str(contents/'Resources/server/listen-server')],env=env,stdout=log,stderr=log,start_new_session=True)
+        try:
+            connection_path=check_root/'connection.json'
+            for _ in range(100):
+                if connection_path.exists():break
+                if process.poll() is not None:raise RuntimeError('Bundled service exited: '+log_path.read_text(errors='replace')[-2000:])
+                time.sleep(.1)
+            if not connection_path.exists():raise RuntimeError('Bundled service startup timed out.')
+            connection=json.loads(connection_path.read_text())
+            assert isinstance(connection['port'],int),'Service port must be numeric.'
+            assert connection['owner_pid']==os.getpid(),'Service launcher identity mismatch.'
+            url='http://127.0.0.1:'+str(connection['port'])+'/api/health'
+            request=urllib.request.Request(url,headers={'X-Listen-Token':connection['token']})
+            with urllib.request.urlopen(request,timeout=5) as response:assert json.load(response)['version']==VERSION
+            try:urllib.request.urlopen(url,timeout=5)
+            except urllib.error.HTTPError as exc:assert exc.code==401
+            else:raise RuntimeError('Bundled service accepted an unauthenticated request.')
+        finally:
+            try:os.killpg(process.pid,signal.SIGTERM)
+            except ProcessLookupError:pass
+            process.wait(timeout=5)
+    print('Bundled startup, numeric port, launcher identity, and authentication checks passed.')
     archive=dist/f'listen-{VERSION}-macOS-{arch}.zip';run(['ditto','-c','-k','--sequesterRsrc','--keepParent',app,archive])
     artifacts=[archive]
     if args.dmg:

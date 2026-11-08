@@ -7,7 +7,7 @@ A glass-inspired audiobook discovery app for macOS with a native shell and a bun
 - Goodreads browser sign-in, Safari book/shelf imports, CSV imports, and a cross-browser book bookmarklet.
 - Direct qBittorrent, Transmission, and Deluge Web adapters; magnet handoff for other clients.
 - Live client-derived torrent-health badges and all-torrent download status.
-- Configurable local, remote, and completed-books destinations; local per-download staging for qBittorrent and Deluge.
+- Local-first downloads, explicit Send to library transfers, and client-aware moves that preserve the torrent’s location for seeding.
 - Client passwords in the system credential store and an authenticated loopback UI.
 
 ### Downloads

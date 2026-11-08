@@ -54,7 +54,7 @@ final class ListenDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         do { try process.run(); server = process; waitForService(100) } catch { showStartupError("The bundled local service could not start. Reinstall listen. or inspect Library/Logs/listen.log.") }
     }
     func waitForService(_ remaining: Int) {
-        if let data = try? Data(contentsOf: root.appendingPathComponent("connection.json")), let connection = try? JSONSerialization.jsonObject(with: data) as? [String: Any], connection["owner_pid"] as? Int == Int(ProcessInfo.processInfo.processIdentifier), let port = connection["port"] as? Int, let secret = connection["token"] as? String, let url = URL(string: "http://127.0.0.1:\(port)") {
+        if let data = try? Data(contentsOf: root.appendingPathComponent("connection.json")), let connection = try? JSONSerialization.jsonObject(with: data) as? [String: Any], connection["owner_pid"] as? Int == Int(ProcessInfo.processInfo.processIdentifier), let port = (connection["port"] as? Int) ?? Int(connection["port"] as? String ?? ""), let secret = connection["token"] as? String, let url = URL(string: "http://127.0.0.1:\(port)") {
             serviceURL = url; token = secret; loadPage("/discover")
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in if self.preferences()["auto_refresh_safari"] as? Bool == true { self.captureSafari(mode: "shelf", background: true) } }
             if let pending = pendingBook { pendingBook = nil; handleBookURL(pending) }

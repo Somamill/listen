@@ -81,6 +81,25 @@ def create_app():
         except clients.ClientError as exc:rows=[];error=str(exc)
         return render_template('status.html',torrents=rows,error=error)
 
+    @app.get('/library')
+    def library_page():
+        from . import library
+        try:rows,error=library.items()
+        except OSError:rows,error=[],'The local downloads folder could not be read.'
+        return render_template('library.html',items=rows,error=error)
+
+    @app.post('/library/transfer')
+    def transfer_library():
+        from . import library
+        data=request.get_json(silent=True) or {}
+        if not library.TRANSFER_LOCK.acquire(blocking=False):return jsonify(error='Another library transfer is running. Please wait.'),409
+        try:
+            if data.get('torrent_id') is not None:result=clients.move_completed(data['torrent_id'])
+            else:result=library.transfer(data.get('relative'))
+            return jsonify(result)
+        except clients.ClientError as exc:return jsonify(error=str(exc)),400
+        finally:library.TRANSFER_LOCK.release()
+
     @app.get('/api/torrents')
     def api_torrents():
         try:return jsonify(torrents=clients.torrents(),client=settings.load()['client']['type'])
@@ -159,7 +178,7 @@ def main():
     app=create_app()
     from waitress import create_server
     service=create_server(app,host='127.0.0.1',port=args.port,threads=6)
-    port=service.effective_port;app.config['BOUND_PORT']=port
+    port=int(service.effective_port);app.config['BOUND_PORT']=port
     settings.atomic_json(settings.data_dir()/'connection.json',{'port':port,'pid':os.getpid(),'owner_pid':int(os.environ.get('LISTEN_OWNER_PID','0')),'token':app.config['SERVICE_TOKEN'],'version':__version__})
     logging.getLogger('waitress').setLevel(logging.ERROR)
     try:service.run()
