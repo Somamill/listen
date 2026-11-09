@@ -1,4 +1,4 @@
-## listen. 0.2.1 · public beta
+## listen. 0.2.2 · public beta
 
 A glass-inspired audiobook discovery app for macOS, with the ◒ icon.
 
@@ -10,6 +10,7 @@ A glass-inspired audiobook discovery app for macOS, with the ◒ icon.
 - qBittorrent, Transmission, and Deluge Web adapters; magnet handoff for other clients.
 - Live torrent-health badges and all-torrent status.
 - Local-first downloads and explicit Send to library transfers, including client-aware moves for seeding.
+- Follow valid catalog HTTPS redirects, preserve searches, normalize mixed-case queries, and use the canonical first search page; unapproved destinations remain blocked.
 - Fixed embedded-browser form origin errors and startup packaging; background library scanning.
 
 ### Downloads

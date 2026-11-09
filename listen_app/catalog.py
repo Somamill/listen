@@ -1,6 +1,6 @@
 """Catalog parsing adapted from JamesRy96/audiobookbay-automated (MIT)."""
 import re
-from urllib.parse import urljoin,urlparse,urlencode
+from urllib.parse import urljoin,urlparse,urlencode,parse_qs
 import requests
 from bs4 import BeautifulSoup
 from . import settings
@@ -32,20 +32,44 @@ def allowed(meta,cfg=None):
         if excluded in labels or re.search(r'(?<!\w)'+re.escape(excluded)+r'(?!\w)',category):return False
     return True
 
-def fetch(url,cfg=None):
-    cfg=cfg or settings.load();parsed=urlparse(url)
-    if parsed.scheme!='https' or parsed.hostname!=cfg['catalog_host'] or parsed.username or parsed.password:raise CatalogError('Invalid catalog link.')
+CATALOG_HOSTS=frozenset({'audiobookbay.lu','audiobookbay.is'})
+
+def valid_catalog_url(url):
     try:
-        response=requests.get(url,headers=UA,timeout=20,allow_redirects=False)
-        response.raise_for_status()
-        if 300<=response.status_code<400:raise CatalogError('The catalog redirected to another address. Check its host in Settings.')
-        return BeautifulSoup(response.text,'html.parser')
+        parsed=urlparse(url)
+        return parsed.scheme=='https' and parsed.hostname in CATALOG_HOSTS and parsed.port in (None,443) and not parsed.username and not parsed.password
+    except ValueError:return False
+
+def fetch(url,cfg=None):
+    cfg=cfg or settings.load()
+    if not valid_catalog_url(url):raise CatalogError('Invalid catalog link.')
+    search_term=parse_qs(urlparse(url).query).get('s')
+    seen=set()
+    try:
+        for _ in range(6):
+            if url in seen:raise CatalogError('The catalog is redirecting in a loop. Please try again later.')
+            seen.add(url)
+            response=requests.get(url,headers=UA,timeout=20,allow_redirects=False)
+            response.raise_for_status()
+            if 300<=response.status_code<400:
+                location=response.headers.get('Location')
+                if not location:raise CatalogError('The catalog returned an incomplete redirect. Please try again later.')
+                target=urljoin(url,location)
+                if not valid_catalog_url(target):raise CatalogError('The catalog redirected outside its approved HTTPS hosts. This address was blocked.')
+                if search_term and parse_qs(urlparse(target).query).get('s')!=search_term:
+                    raise CatalogError('The catalog dropped this search instead of returning results. Try a shorter book title or author.')
+                url=target;continue
+            soup=BeautifulSoup(response.text,'html.parser')
+            soup._listen_catalog_url=url
+            return soup
+        raise CatalogError('The catalog redirected too many times. Please try again later.')
     except requests.RequestException as exc:raise CatalogError('The catalog is unavailable. Try again later; certificate validation stays enabled.') from exc
 
 def search(query,cfg=None):
     cfg=cfg or settings.load();results=[];seen=set()
     for page in range(1,cfg['search_pages']+1):
-        try:soup=fetch('https://'+cfg['catalog_host']+f'/page/{page}/?'+urlencode({'s':query}),cfg)
+        path='/' if page==1 else f'/page/{page}/'
+        try:soup=fetch('https://'+cfg['catalog_host']+path+'?'+urlencode({'s':query.lower()}),cfg)
         except CatalogError:
             if results:break
             raise
@@ -56,8 +80,9 @@ def search(query,cfg=None):
             if not a:continue
             meta=metadata(post)
             if not allowed(meta,cfg):continue
-            link=urljoin('https://'+cfg['catalog_host'],a.get('href',''))
-            if urlparse(link).hostname!=cfg['catalog_host'] or link in seen:continue
+            base=getattr(soup,'_listen_catalog_url',None) or 'https://'+cfg['catalog_host']
+            link=urljoin(base,a.get('href',''))
+            if not valid_catalog_url(link) or link in seen:continue
             seen.add(link)
             text=post.get_text(' ',strip=True)
             def field(label):

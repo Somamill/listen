@@ -163,6 +163,26 @@ class ListenTests(unittest.TestCase):
         with patch.object(clients,'torrents',return_value=[]):
             for path in ['/','/discover','/settings','/status','/library']:self.assertEqual(self.get(path).status_code,200,path)
         with patch.object(clients,'torrents',side_effect=clients.ClientError('Unavailable')):self.assertEqual(self.get('/api/torrents').status_code,503)
+    def test_catalog_follows_only_approved_https_redirects(self):
+        import requests
+        def response(code,location=None):
+            r=requests.Response();r.status_code=code;r._content=b'<html><div class="post">Example</div></html>';r.url='https://audiobookbay.lu/'
+            if location:r.headers['Location']=location
+            return r
+        with patch('requests.get',side_effect=[response(301,'https://audiobookbay.lu/?s=aesop'),response(200)]) as get:
+            soup=catalog.fetch('https://audiobookbay.lu/page/1/?s=aesop',self.cfg)
+            self.assertIsNotNone(soup.select_one('.post'));self.assertEqual(get.call_count,2)
+        for target in ['https://evil.example/?s=aesop','http://audiobookbay.lu/?s=aesop','https://user@audiobookbay.lu/?s=aesop','https://audiobookbay.lu:444/?s=aesop']:
+            with patch('requests.get',return_value=response(302,target)) as get,self.assertRaises(catalog.CatalogError):
+                catalog.fetch('https://audiobookbay.lu/?s=aesop',self.cfg)
+            self.assertEqual(get.call_count,1)
+        with patch('requests.get',return_value=response(302,'/')),self.assertRaisesRegex(catalog.CatalogError,'dropped this search'):
+            catalog.fetch('https://audiobookbay.lu/?s=aesop',self.cfg)
+    def test_catalog_uses_canonical_first_search_page(self):
+        with patch.object(catalog,'fetch',return_value=BeautifulSoup('<html></html>','html.parser')) as fetch:
+            catalog.search('Aesop',self.cfg)
+            self.assertEqual(fetch.call_args.args[0],'https://audiobookbay.lu/?s=aesop')
+
     def test_catalog_does_not_invent_trackers(self):
         info='b'*40
         soup=BeautifulSoup(f'<div class="post"><div class="postInfo">Category: History Language: English Keywords: Test</div><table><tr><td>Info Hash</td><td>{info}</td></tr></table></div>','html.parser')
@@ -194,7 +214,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.2');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})
