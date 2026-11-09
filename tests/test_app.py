@@ -237,6 +237,16 @@ class ListenTests(unittest.TestCase):
         with patch.object(catalog,'fetch',return_value=BeautifulSoup('<html></html>','html.parser')) as fetch:
             catalog.search('Aesop',self.cfg)
             self.assertEqual(fetch.call_args.args[0],'https://audiobookbay.lu/?s=aesop')
+            catalog.search('Blink: The Power of Thinking',self.cfg)
+            self.assertEqual(fetch.call_args.args[0],'https://audiobookbay.lu/?s=blink')
+            catalog.search("Assassin's Apprentice (Farseer Trilogy, #1)",self.cfg)
+            self.assertIn('assassin',fetch.call_args.args[0]);self.assertNotIn('farseer',fetch.call_args.args[0])
+
+    def test_catalog_ranks_main_title_and_subtitle_matches(self):
+        soup=BeautifulSoup('<div class="post"><div class="postTitle"><h2><a href="/abss/other/">Do Not Blink - Example Author</a></h2></div></div><div class="post"><div class="postTitle"><h2><a href="/abss/match/">Blink: The Power of Thinking - Example Author</a></h2></div></div>','html.parser')
+        with patch.object(catalog,'fetch',return_value=soup):
+            rows=catalog.search('Blink: The Power of Thinking',self.cfg)
+            self.assertTrue(rows[0]['title'].startswith('Blink:'))
 
     def test_catalog_does_not_invent_trackers(self):
         info='b'*40

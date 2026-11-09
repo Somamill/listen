@@ -72,7 +72,7 @@ def create_app():
             if title:source_book={'title':title,'author':author}
             if query:
                 try:
-                    books=catalog.search(query)
+                    books=catalog.search(title or query)
                     if source_book:
                         import difflib,re
                         clean=lambda s:' '.join(re.findall(r'\w+',s.casefold()))

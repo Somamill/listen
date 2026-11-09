@@ -84,9 +84,12 @@ def fetch(url,cfg=None):
 
 def search(query,cfg=None):
     cfg=cfg or settings.load();results=[];seen=set()
+    # The provider matches common subtitle/series words too broadly. Keep the main title.
+    primary=re.split(r'[:(\[]',query,maxsplit=1)[0].strip() or query.strip()
+    remote_query=' '.join(primary.lower().split())
     for page in range(1,cfg['search_pages']+1):
         path='/' if page==1 else f'/page/{page}/'
-        try:soup=fetch('https://'+cfg['catalog_host']+path+'?'+urlencode({'s':query.lower()}),cfg)
+        try:soup=fetch('https://'+cfg['catalog_host']+path+'?'+urlencode({'s':remote_query}),cfg)
         except CatalogError:
             if results:break
             raise
@@ -106,6 +109,10 @@ def search(query,cfg=None):
                 m=re.search(label+r':\s*([^\s]+(?:\s*(?:kbps|GB|MB|KB))?)',text,re.I)
                 return m.group(1)[:40] if m else 'Not listed'
             results.append(dict(cover=image_from(post.select_one('.postContent img, .postContent p img, img')),title=a.get_text(' ',strip=True),link=link,language=meta['language'],category=meta['category'],format=field('Format'),file_size=field('File Size'),bitrate=field('Bitrate'),health={'kind':'unknown','label':'Health unknown','detail':'Live peer health is available only after the client connects. No tracker is contacted by this preview.'}))
+    normalize=lambda text:' '.join(re.findall(r'\w+',text.casefold()))
+    wanted=normalize(query);core=normalize(primary)
+    significant=set(wanted.split())-{'the','a','an','of','and','in','to','for','der','die','das','und','von'}
+    results.sort(key=lambda b:(int(normalize(b['title']).startswith(core)),len(significant & set(normalize(b['title']).split())),int(wanted in normalize(b['title']))),reverse=True)
     return results
 
 def magnet(details_url,cfg=None):

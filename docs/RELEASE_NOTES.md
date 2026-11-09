@@ -7,6 +7,7 @@ A portable audiobook discovery app for macOS 13+, with separate Apple Silicon an
 - Persistent Goodreads sign-in inside listen., automatic shelf refresh while open, and separate Want to Read, Currently Reading, Read, and Did Not Finish tabs.
 - Higher-resolution metadata covers, light/dark/system appearance, and the ◒ app icon.
 - Retry temporary catalog server/network failures once; distinguish outages, certificate failures, rate limits, and missing searches. Never retry a rejected certificate or evade rate limits.
+- Search by the main title when a subtitle or series suffix would dilute provider matching; Goodreads author metadata still helps rank editions.
 - Catalog search normalization and approved HTTPS redirects; language/category filters are reapplied before adding an edition.
 - Local-first downloads for direct local clients and an explicit Send to library action.
 - Removed obsolete public-feed and automatic Safari connection experiments, unused endpoints, and stale messages.
