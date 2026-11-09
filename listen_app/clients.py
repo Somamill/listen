@@ -1,6 +1,7 @@
 from __future__ import annotations
 from urllib.parse import urlparse
 from pathlib import Path
+import sys,subprocess,time,threading
 from . import settings
 from .health import describe
 
@@ -24,6 +25,42 @@ def _connect(config):
         from deluge_web_client import DelugeWebClient
         d=DelugeWebClient(url=c['url'],password=pw);d.login();return d
     return None
+
+_START_LOCK=threading.Lock()
+
+def _connect_for_add(cfg):
+    if cfg['client']['type']!='qbittorrent':return _connect(cfg),False
+    from qbittorrentapi import APIConnectionError,LoginFailed,Unauthorized401Error,Forbidden403Error
+    auth_errors=(LoginFailed,Unauthorized401Error,Forbidden403Error)
+    def connect():
+        try:return _connect(cfg)
+        except auth_errors as exc:raise ClientError('qBittorrent is open, but its Web UI rejected the login. Check the saved credentials in Settings.') from exc
+    try:return connect(),False
+    except APIConnectionError:pass
+    if not is_local(cfg) or sys.platform!='darwin':
+        raise ClientError('qBittorrent is not reachable. Open it on the configured computer and check its Web UI address in Settings.')
+    if not cfg.get('auto_start_client',True):raise ClientError('Open qBittorrent, or enable automatic client startup in Settings.')
+    with _START_LOCK:
+        try:return connect(),False
+        except APIConnectionError:pass
+        try:
+            launched=subprocess.run(['/usr/bin/open','-g','-b','org.qbittorrent.qBittorrent'],capture_output=True,timeout=8)
+        except (OSError,subprocess.TimeoutExpired) as exc:raise ClientError('Could not open qBittorrent. Install the Mac app or open it manually, then try again.') from exc
+        if launched.returncode:raise ClientError('qBittorrent is not installed or could not open. Install it or choose another torrent client in Settings.')
+        deadline=time.monotonic()+20
+        while time.monotonic()<deadline:
+            try:return connect(),True
+            except APIConnectionError:time.sleep(.5)
+        raise ClientError('qBittorrent opened, but its Web UI did not become ready. Check the Web UI address in Settings. If your privacy watchdog closed it, resolve that warning before retrying.')
+
+def prepare(config=None):
+    cfg=config or settings.load()
+    if cfg['client']['type']=='magnet':return {'ready':True,'started':False,'client':'magnet'}
+    try:
+        _,started=_connect_for_add(cfg)
+        return {'ready':True,'started':started,'client':cfg['client']['type']}
+    except ClientError:raise
+    except Exception as exc:raise ClientError('Could not connect to the torrent client. Check its Web UI address and saved credentials in Settings.') from exc
 
 def torrents(config=None):
     cfg=config or settings.load();kind=cfg['client']['type']
@@ -70,8 +107,10 @@ def add(magnet,title,destination='default',config=None):
         staging=settings.data_dir()/'Incomplete';staging.mkdir(parents=True,exist_ok=True)
         extra={'download_path':str(staging),'use_download_path':True}
     try:
-        c=_connect(cfg)
-        if kind=='qbittorrent':c.torrents_add(urls=magnet,save_path=save_path,category=cfg['client']['category'],use_auto_torrent_management=False,**extra)
+        c,_=_connect_for_add(cfg)
+        if kind=='qbittorrent':
+            result=c.torrents_add(urls=magnet,save_path=save_path,category=cfg['client']['category'],use_auto_torrent_management=False,**extra)
+            if isinstance(result,str) and result.strip().lower() not in ('ok.','ok'):raise ClientError('qBittorrent rejected this torrent link. Check that the edition still has a valid torrent or magnet link.')
         elif kind=='transmission':
             if extra:raise ClientError('Per-download local staging is supported by qBittorrent and Deluge. Configure Transmission’s own incomplete directory or disable staging.')
             c.add_torrent(magnet,download_dir=save_path)

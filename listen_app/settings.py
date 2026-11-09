@@ -8,7 +8,7 @@ DEFAULTS={
  'catalog_host':'audiobookbay.lu','search_pages':2,
  'client':{'type':'qbittorrent','url':'http://127.0.0.1:8080','username':'','category':'listen'},
  'downloads_folder':'','completed_folder':'','stage_incomplete':True,
- 'browser':'default','auto_refresh_safari':False,
+ 'browser':'default','auto_refresh_safari':False,'auto_start_client':True,
 }
 
 def data_dir():
@@ -46,7 +46,7 @@ def validate(payload):
     for key in ('languages','categories','excluded_categories'):
         if not isinstance(cfg[key],list) or len(cfg[key])>100:raise ValueError('Invalid filters.')
         cfg[key]=list(dict.fromkeys(str(v).strip()[:80] for v in cfg[key] if str(v).strip()))
-    for key in ('include_unknown_language','stage_incomplete','auto_refresh_safari'):
+    for key in ('include_unknown_language','stage_incomplete','auto_refresh_safari','auto_start_client'):
         if not isinstance(cfg[key],bool):raise ValueError('Invalid option.')
     try:cfg['search_pages']=int(cfg['search_pages'])
     except (ValueError,TypeError):raise ValueError('Choose 1 to 5 search pages.')

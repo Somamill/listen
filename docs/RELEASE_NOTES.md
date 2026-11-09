@@ -1,4 +1,4 @@
-## listen. 0.2.2 · public beta
+## listen. 0.2.3 · public beta
 
 A glass-inspired audiobook discovery app for macOS, with the ◒ icon.
 
@@ -7,6 +7,7 @@ A glass-inspired audiobook discovery app for macOS, with the ◒ icon.
 - Separate Want to Read, Currently Reading, Read, and Did Not Finish sections from your Goodreads shelves.
 - Larger metadata covers, with a restricted private image cache and a typographic fallback.
 - Goodreads books linked to audiobook-edition searches; downloads start only when you choose an edition.
+- Automatically open local qBittorrent when adding a download, wait for its Web UI, and show clear connection/login errors. Remote clients are not launched.
 - qBittorrent, Transmission, and Deluge Web adapters; magnet handoff for other clients.
 - Live torrent-health badges and all-torrent status.
 - Local-first downloads and explicit Send to library transfers, including client-aware moves for seeding.

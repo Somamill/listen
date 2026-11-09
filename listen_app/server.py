@@ -80,6 +80,11 @@ def create_app():
                 except catalog.CatalogError as exc:error=str(exc)
         return render_template('search.html',books=books,query=query,source_book=source_book,error=error)
 
+    @app.post('/api/client/ready')
+    def prepare_client():
+        try:return jsonify(clients.prepare())
+        except clients.ClientError as exc:return jsonify(message=str(exc)),400
+
     @app.post('/send')
     def send():
         d=request.get_json(silent=True)

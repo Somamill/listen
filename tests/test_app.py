@@ -123,6 +123,25 @@ class ListenTests(unittest.TestCase):
             clients.add('magnet:?xt=urn:btih:'+'a'*40,'../../A book','default',cfg)
             kw=connect.return_value.torrents_add.call_args.kwargs
             self.assertTrue(kw['use_download_path']);self.assertFalse(kw['use_auto_torrent_management']);self.assertEqual(kw['save_path'],str(Path(TEMP.name)/'A book'))
+    def test_local_qbittorrent_starts_before_sending(self):
+        from qbittorrentapi import APIConnectionError
+        cfg=copy.deepcopy(self.cfg);cfg['client']['url']='http://127.0.0.1:18080'
+        connection=Mock()
+        with patch.object(clients,'_connect',side_effect=[APIConnectionError('closed'),APIConnectionError('closed'),connection]),patch.object(clients.sys,'platform','darwin'),patch.object(clients.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as launch:
+            result=clients.prepare(cfg);self.assertTrue(result['ready']);self.assertTrue(result['started']);launch.assert_called_once()
+    def test_remote_or_rejected_login_never_launches_local_app(self):
+        from qbittorrentapi import APIConnectionError,LoginFailed
+        cfg=copy.deepcopy(self.cfg);cfg['client']['url']='https://remote.example:8080'
+        with patch.object(clients,'_connect',side_effect=APIConnectionError('closed')),patch.object(clients.subprocess,'run') as launch,self.assertRaises(clients.ClientError):clients.prepare(cfg)
+        launch.assert_not_called()
+        cfg['client']['url']='http://127.0.0.1:18080'
+        with patch.object(clients,'_connect',side_effect=LoginFailed('bad login')),patch.object(clients.subprocess,'run') as launch,self.assertRaisesRegex(clients.ClientError,'rejected the login'):clients.prepare(cfg)
+        launch.assert_not_called()
+    def test_qbittorrent_rejected_add_is_not_reported_as_success(self):
+        c=Mock();c.torrents_add.return_value='Fails.'
+        with patch.object(clients,'_connect',return_value=c),self.assertRaisesRegex(clients.ClientError,'rejected this torrent'):
+            clients.add('magnet:?xt=urn:btih:'+'b'*40,'Synthetic test','default',self.cfg)
+
     def test_magnet_handoff_does_not_connect(self):
         cfg=copy.deepcopy(self.cfg);cfg['client']['type']='magnet'
         with patch.object(clients,'_connect') as c:
@@ -214,7 +233,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.2');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.3');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

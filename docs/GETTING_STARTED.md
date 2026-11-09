@@ -5,7 +5,7 @@
 3. Enable your client’s Web/RPC interface and enter its URL. Use its actual port, credentials, and remote paths. Save, then test the connection.
 4. Choose a default downloads folder. Optionally choose a completed-books folder, including a cloud drive. For a remote client, type a path on that remote machine.
 5. Choose languages and category filters. Leaving a filter empty includes everything; exclusions use the catalog’s labels.
-6. Search for a title or author. Inspect the edition, language, narrator, and metadata before adding it.
+6. Search for a title or author. Inspect the edition, language, narrator, and metadata before adding it. If local qBittorrent is closed, listen. opens it in the background, waits for its Web UI, then sends the download. You can disable this in Settings. Remote clients must already be running.
 
 ## Typical local client URLs
 
