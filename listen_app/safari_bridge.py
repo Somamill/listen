@@ -94,29 +94,6 @@ def own_shelf(soup):
             if match:return match.group(1)
     return None
 
-@safari.post('/goodreads/connection')
-def connection_page():
-    """Native Safari bridge; no cookies or login form content are accepted."""
-    if not hmac.compare_digest(request.headers.get('X-Listen-Token',''),TOKEN.read_text().strip()):return jsonify(error='Unauthorized'),403
-    data=request.get_json(silent=True) or {};action=data.get('action')
-    previous=read(STATE,{})
-    if action in ('disconnect','connecting','needs-signin','unavailable'):
-        state='disconnected' if action=='disconnect' else action
-        save(STATE,dict(state=state,last_sync=previous.get('last_sync'),count=previous.get('count',0),message={'disconnected':'Goodreads disconnected. Your imported books stay on this Mac.','connecting':'Finish signing in in Safari. Your books will appear automatically.','needs-signin':'Goodreads needs you to sign in again in Safari.','unavailable':'Safari could not refresh. Reconnect to continue.'}[state]))
-        return jsonify(ok=True)
-    url=str(data.get('url',''));p=urlparse(url)
-    if p.scheme!='https' or p.hostname not in ('www.goodreads.com','goodreads.com') or p.username or p.password:return jsonify(error='Invalid Goodreads page'),400
-    is_shelf=re.fullmatch(r'/review/list/(\d+)(?:[-/].*)?',p.path)
-    if p.path not in ('','/') and not is_shelf and not re.fullmatch(r'/user/show/\d+[^/]*',p.path):return jsonify(error='Sign-in pages are never imported.'),400
-    soup=BeautifulSoup(str(data.get('html','')),'html.parser');user=own_shelf(soup)
-    if not user:return jsonify(action='wait',message='Waiting for Goodreads My Books navigation.'),200
-    expected=str(data.get('user_id',''))
-    if expected and expected!=user:return jsonify(error='The Goodreads account changed. Reconnect to choose this account.'),409
-    from .goodreads_feed import connect
-    connect(user)
-    return jsonify(action='background',user_id=user)
-
-
 @safari.post('/goodreads/window')
 def window_page():
     """Native Goodreads window; no login form content is accepted."""
@@ -125,7 +102,7 @@ def window_page():
     previous=read(STATE,{})
     if action in ('disconnect','connecting','needs-signin','unavailable'):
         state='disconnected' if action=='disconnect' else action
-        save(STATE,dict(state=state,last_sync=previous.get('last_sync'),count=previous.get('count',0),message={'disconnected':'Goodreads disconnected. Your imported books stay on this Mac.','connecting':'Finish signing in in Safari. Your books will appear automatically.','needs-signin':'Goodreads needs you to sign in again in Safari.','unavailable':'Safari could not refresh. Reconnect to continue.'}[state]))
+        save(STATE,dict(state=state,last_sync=previous.get('last_sync'),count=previous.get('count',0),message={'disconnected':'Goodreads disconnected. Your imported books stay on this Mac.','connecting':'Finish signing in in the Goodreads window inside listen. Your books will appear automatically.','needs-signin':'Sign in again in the Goodreads window inside listen.','unavailable':'Goodreads could not refresh. Your saved books are kept; try refreshing again.'}[state]))
         return jsonify(ok=True)
     url=str(data.get('url',''));p=urlparse(url)
     if p.scheme!='https' or p.hostname not in ('www.goodreads.com','goodreads.com') or p.username or p.password:return jsonify(error='Invalid Goodreads page'),400
@@ -143,7 +120,8 @@ def window_page():
     except ValueError:
         if not soup.select_one('table#books, #booksBody'):return jsonify(action='wait'),200
         incoming=[]
-    page=int(data.get('page',1))
+    try:page=int(data.get('page',1))
+    except (TypeError,ValueError):return jsonify(error='Invalid shelf page'),400
     if page<1 or page>20:return jsonify(error='Invalid shelf page'),400
     # Accumulate a complete refresh separately, then swap the visible library atomically.
     pending=STORE.with_name('goodreads-pending.json')
@@ -162,5 +140,5 @@ def window_page():
         save(STATE,dict(state='syncing',count=len(books),last_sync=previous.get('last_sync'),message='Refreshing your Goodreads shelves…'))
         return jsonify(action='navigate',url=base+f'?shelf=all&per_page=100&page={page+1}',user_id=user,page=page+1)
     changed=books!=read(STORE,[]);save(STORE,books);pending.unlink(missing_ok=True)
-    save(STATE,dict(state='connected',user_id=user,count=len(books),last_sync=time.time(),checked_at=time.time(),truncated=has_next,message='Goodreads connected inside listen. Safari is not needed. Shelves refresh every five minutes while the app is open.' if not has_next else 'Connected. First 2,000 books refreshed.'))
+    save(STATE,dict(state='connected',user_id=user,count=len(books),last_sync=time.time(),checked_at=time.time(),truncated=has_next,changed=changed,message='Goodreads connected inside listen. Safari is not needed. Shelves refresh every five minutes while the app is open.' if not has_next else 'Connected. First 2,000 books refreshed.'))
     return jsonify(action='complete',count=len(books),changed=changed,user_id=user)

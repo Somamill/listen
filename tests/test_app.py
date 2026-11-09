@@ -15,15 +15,44 @@ class ListenTests(unittest.TestCase):
         for name in ['settings.json','goodreads-library.json','goodreads-sync-state.json','listening-progress.json']:(Path(TEMP.name)/name).unlink(missing_ok=True)
         self.app=create_app();self.app.config['BOUND_PORT']=58432;self.client=self.app.test_client();self.base='http://127.0.0.1:58432'
         self.headers={'X-Listen-Token':self.app.config['SERVICE_TOKEN'],'Origin':self.base,'Referer':self.base+'/discover'}
-        self.cfg=copy.deepcopy(settings.DEFAULTS);self.cfg['downloads_folder']=TEMP.name;self.cfg['completed_folder']=TEMP.name
+        self.cfg=copy.deepcopy(settings.DEFAULTS);self.cfg['client']['type']='qbittorrent';self.cfg['downloads_folder']=TEMP.name;self.cfg['completed_folder']=TEMP.name
         settings.atomic_json(Path(TEMP.name)/'settings.json',{'downloads_folder':str(Path(TEMP.name)/'downloads')})
     def get(self,path,headers=None):return self.client.get(path,base_url=self.base,headers=self.headers if headers is None else headers)
     def post(self,path,data=None,**kwargs):return self.client.post(path,base_url=self.base,headers=self.headers,json=data,**kwargs)
     def meta(self,lang='English',category='History',tag=''):
         p=BeautifulSoup(f'<div class="post"><h2>A book title</h2><div class="postInfo">Category: <a>{category}</a> Language: {lang} Keywords: <a rel="tag">{tag}</a></div></div>','html.parser').div
         return catalog.metadata(p)
+    def test_fresh_defaults_work_without_local_webui(self):
+        cfg=settings.load()
+        self.assertEqual(cfg['client']['type'],'magnet');self.assertEqual(cfg['languages'],[]);self.assertEqual(cfg['excluded_categories'],[]);self.assertEqual(cfg['completed_folder'],'')
+        with patch.object(clients,'_connect') as connect:
+            self.assertTrue(clients.test(cfg)['handoff']);connect.assert_not_called()
+        self.assertEqual(self.post('/goodreads/feed/connect',{'url':'https://www.goodreads.com/user/show/123'}).status_code,404)
+    def test_existing_settings_remain_direct_and_invalid_ports_rejected(self):
+        settings.atomic_json(Path(TEMP.name)/'settings.json',{'client':{'type':'qbittorrent','url':'http://127.0.0.1:18080'},'languages':['German'],'completed_folder':'/tmp/example-library'})
+        cfg=settings.load();self.assertEqual(cfg['client']['url'],'http://127.0.0.1:18080');self.assertEqual(cfg['languages'],['German']);self.assertEqual(cfg['completed_folder'],'/tmp/example-library')
+        for url in ['http://127.0.0.1:invalid','http://127.0.0.1:0','http://127.0.0.1:99999']:
+            with self.assertRaises(ValueError):settings.validate({'client':{'type':'qbittorrent','url':url}})
+    def test_invalid_json_is_handled_and_unicode_progress_is_distinct(self):
+        for path in ['/api/settings','/send','/reading/track','/goodreads/window','/library/transfer']:
+            self.assertEqual(self.post(path,[]).status_code,400,path)
+        from listen_app.goodreads_sync import book_key
+        self.assertNotEqual(book_key({'title':'東京','author':'著者'}),book_key({'title':'京都','author':'著者'}))
+        from listen_app.goodreads_sync import TRACKING,save,library_tracking
+        save(TRACKING,{'caf author':{'state':'finished'}})
+        with patch.object(clients,'torrents',return_value=[]):
+            self.assertEqual(library_tracking([{'title':'Café','author':'Author'}])[0]['listening_state'],'finished')
+
+    def test_remote_windows_folders_are_not_local_mac_paths(self):
+        cfg=settings.validate({'client':{'type':'qbittorrent','url':'https://remote.example:8080'},'downloads_folder':'C:\\Audiobooks','completed_folder':'D:\\Library'})
+        with patch.object(clients,'_connect') as connect:
+            clients.add('magnet:?xt=urn:btih:'+'c'*40,'Synthetic recording',config=cfg)
+            self.assertEqual(connect.return_value.torrents_add.call_args.kwargs['save_path'],str(__import__('pathlib').PureWindowsPath(cfg['downloads_folder'])/'Synthetic recording'))
+        with self.assertRaises(ValueError):settings.validate({'client':{'type':'qbittorrent','url':'http://127.0.0.1:8080'},'downloads_folder':'C:\\Audiobooks'})
+
     def test_auth_host_csrf_and_cookie(self):
         self.assertEqual(self.get('/discover',{}).status_code,401)
+        self.assertEqual(self.get('/discover',{'X-Listen-Token':'é'}).status_code,401)
         response=self.get('/discover');self.assertEqual(response.status_code,200)
         self.assertIn('HttpOnly',response.headers['Set-Cookie']);self.assertIn('SameSite=Strict',response.headers['Set-Cookie'])
         self.assertEqual(self.client.get('/discover',base_url='http://evil.example:58432',headers=self.headers).status_code,403)
@@ -46,23 +75,6 @@ class ListenTests(unittest.TestCase):
             self.assertEqual(response.status_code,200)
         self.assertEqual(self.client.post('/api/settings',base_url=self.base,json={}).status_code,403)
         self.assertEqual(self.client.post('/api/settings',base_url=self.base,headers={'Origin':'https://evil.example','X-Listen-CSRF':token},json={}).status_code,403)
-
-    def test_goodreads_browser_bootstrap_starts_independent_feed(self):
-        header='<header><a href="/review/list/123-test">My Books</a></header>'
-        with patch('listen_app.goodreads_feed.connect') as connect:
-            result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/','html':header})
-            self.assertEqual(result.json['action'],'background');connect.assert_called_once_with('123')
-        result=self.post('/goodreads/connection',{'url':'https://www.goodreads.com/user/sign_in','html':header})
-        self.assertEqual(result.status_code,400)
-    def test_goodreads_feed_metadata_and_profile_validation(self):
-        from listen_app.goodreads_feed import profile_id,parse_feed
-        self.assertEqual(profile_id('https://www.goodreads.com/user/show/123-name'),'123')
-        self.assertIsNone(profile_id('https://evil.example/user/show/123'))
-        rows=parse_feed(b'<rss><channel><item><title>Example</title><author_name>Author</author_name><book_id>42</book_id><book_image_url>https://i.gr-assets.com/a.jpg</book_image_url></item></channel></rss>')
-        self.assertEqual(rows[0]['goodreads'],'https://www.goodreads.com/book/show/42');self.assertIn('a.jpg',rows[0]['cover'])
-        with self.assertRaises(ValueError):parse_feed(b'<!DOCTYPE rss><rss/>')
-        with patch('listen_app.goodreads_feed.connect') as connect:
-            self.assertEqual(self.post('/goodreads/feed/connect',{'url':'https://www.goodreads.com/user/show/123'}).status_code,200);connect.assert_called_once_with('123')
 
     def test_native_goodreads_window_pages_and_session_boundary(self):
         header='<header><a href="/review/list/123-name">My Books</a></header>'
@@ -141,6 +153,14 @@ class ListenTests(unittest.TestCase):
         c=Mock();c.torrents_add.return_value='Fails.'
         with patch.object(clients,'_connect',return_value=c),self.assertRaisesRegex(clients.ClientError,'rejected this torrent'):
             clients.add('magnet:?xt=urn:btih:'+'b'*40,'Synthetic test','default',self.cfg)
+
+    def test_qbittorrent_structured_add_responses(self):
+        for result in [{'success_count':1,'failure_count':0},{'pending_count':1,'failure_count':0}]:
+            c=Mock();c.torrents_add.return_value=result
+            with patch.object(clients,'_connect',return_value=c):self.assertFalse(clients.add('magnet:?xt=urn:btih:'+'d'*40,'Synthetic recording',config=self.cfg)['handoff'])
+        for result in [{'success_count':0,'failure_count':1},{'success_count':0,'pending_count':0,'failure_count':0}]:
+            c=Mock();c.torrents_add.return_value=result
+            with patch.object(clients,'_connect',return_value=c),self.assertRaises(clients.ClientError):clients.add('magnet:?xt=urn:btih:'+'d'*40,'Synthetic recording',config=self.cfg)
 
     def test_magnet_handoff_does_not_connect(self):
         cfg=copy.deepcopy(self.cfg);cfg['client']['type']='magnet'
@@ -233,7 +253,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.2.3');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.3.0');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

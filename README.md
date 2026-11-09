@@ -7,7 +7,7 @@
 <img alt="macOS 13 or later" src="https://img.shields.io/badge/macOS-13%2B-657c68">
 </p>
 
-<h1 align="center">listen.</h1>
+<h1 align="center">listen. — Audiobook Discovery for macOS</h1>
 <p align="center"><strong>A little time. A whole new world.</strong><br>A glass-inspired audiobook discovery app for macOS, with Goodreads connections and your favorite torrent client.</p>
 
 <p align="center"><a href="https://github.com/Somamill/listen/releases">Download for Mac</a> · <a href="docs/GETTING_STARTED.md">Get started</a> · <a href="docs/PRIVACY.md">Privacy</a> · <a href="https://github.com/Somamill/listen/issues">Report a problem</a></p>
@@ -17,17 +17,22 @@
 - **Discover audiobook editions** by title or author, with configurable language, category, and tag filters.
 - **Keep reading shelves separate:** Want to Read, Currently Reading, Read, and Did Not Finish, with completed books in their own section.
 - **Bring a Goodreads book** from Safari, a browser bookmarklet, or a pasted link. Review the edition before sending anything to a client.
-- **Use your torrent client:** direct integrations for qBittorrent, Transmission, and Deluge Web; magnet-link handoff for other compatible clients.
+- **Start without API setup:** new installs send magnet links to the Mac’s default torrent app.
+- **Use your torrent client:** optional direct integrations for qBittorrent, Transmission, and Deluge Web; magnet-link handoff for other compatible clients.
 - **See actual torrent health** from available client metrics. Search previews show “Health unknown” until the client connects.
-- **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. Downloads finish locally first. Use **Send to library** to move completed items when you choose; managed torrents move through the client so seeding can continue.
+- **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. With a direct local connection, downloads finish locally first. In magnet handoff mode, the client controls locations and progress. Use **Send to library** to move completed items when you choose; managed torrents move through the client so seeding can continue.
 - **Make it yours:** light glass, dark glass, or system appearance, with a native Mac window, directory picker, keyboard shortcuts, optional Touch ID / Mac-password window lock, and a manual official-release update check.
 - **Keep your setup local:** client passwords use the system credential store. Settings and reading progress stay on your machine; no hosted listen. account or analytics service.
 
 ## Download
 
-Get the matching **Apple Silicon (`arm64`)** or **Intel (`x86_64`)** archive from [Releases](https://github.com/Somamill/listen/releases). The Mac app bundles its Python runtime; users do not need Homebrew, Docker, or a separate Python installation. A torrent client remains a separate application.
+Get the matching **Apple Silicon (`arm64`)** or **Intel (`x86_64`)** archive from [Releases](https://github.com/Somamill/listen/releases). Install a compatible torrent app separately, then search and add a book through default-app handoff without Web UI setup. Direct integrations need the client’s address and credentials. The Mac app bundles its Python runtime; users do not need Homebrew, Docker, or a separate Python installation. A torrent client remains a separate application.
 
 **Public beta:** these community builds are ad-hoc signed, not Apple Developer ID signed or notarized. macOS may block a downloaded build. The repository includes the complete source and build instructions; production notarization is not claimed. See [Apple’s guidance about apps from outside the App Store](https://support.apple.com/102445).
+
+## Setup, updates, and release checks
+
+See the [step-by-step Mac setup and update guide](docs/GETTING_STARTED.md). Preferences are per user and survive replacing the app. No personal profile, proxy, credentials, custom folders, or exclusion list is embedded. See the [release-readiness report](docs/RELEASE_READINESS.md) for validation and remaining limits.
 
 ## Client compatibility
 
@@ -69,7 +74,7 @@ git clone https://github.com/Somamill/listen.git
 cd listen
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[build]'
+python -m pip install -c constraints.txt -e '.[build]'
 python -m unittest discover -s tests -v
 python scripts/build_macos.py --dmg
 ```

@@ -73,6 +73,17 @@ def main():
             url='http://127.0.0.1:'+str(connection['port'])+'/api/health'
             request=urllib.request.Request(url,headers={'X-Listen-Token':connection['token']})
             with urllib.request.urlopen(request,timeout=5) as response:assert json.load(response)['version']==VERSION
+            base='http://127.0.0.1:'+str(connection['port'])
+            def fresh_get(path):
+                with urllib.request.urlopen(urllib.request.Request(base+path,headers={'X-Listen-Token':connection['token']}),timeout=8) as response:return response.read()
+            prefs=json.loads(fresh_get('/api/settings'))
+            assert prefs['client']['type']=='magnet','Fresh installs must not require a preconfigured Web UI.'
+            assert prefs['languages']==[] and prefs['excluded_categories']==[] and prefs['completed_folder']=='','Personal preferences must not enter fresh packages.'
+            for page in ('/','/discover','/settings','/status','/library'):
+                html=fresh_get(page)
+                assert b'Traceback' not in html and b'Invalid origin' not in html,page
+            assert connection_path.stat().st_mode & 0o077 == 0,'Local connection data must be private.'
+
             try:urllib.request.urlopen(url,timeout=5)
             except urllib.error.HTTPError as exc:assert exc.code==401
             else:raise RuntimeError('Bundled service accepted an unauthenticated request.')
@@ -80,7 +91,7 @@ def main():
             try:os.killpg(process.pid,signal.SIGTERM)
             except ProcessLookupError:pass
             process.wait(timeout=5)
-    print('Bundled startup, numeric port, launcher identity, and authentication checks passed.')
+    print('Bundled fresh-install pages, neutral defaults, startup, launcher identity, and authentication checks passed.')
     archive=dist/f'listen-{VERSION}-macOS-{arch}.zip';run(['ditto','-c','-k','--sequesterRsrc','--keepParent',app,archive])
     artifacts=[archive]
     if args.dmg:

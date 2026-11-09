@@ -18,13 +18,6 @@ final class ListenDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
     var grUser = ""
     var grPage = 1
     var grTimer: Timer?
-    var refreshTimer: Timer?
-    var goodreadsEnabled = false
-    var goodreadsWindow: Int?
-    var goodreadsUser = ""
-    var goodreadsPage = 1
-    var goodreadsNext = Date.distantPast
-    var goodreadsRefreshStart = false
     var root: URL {
         if let custom = ProcessInfo.processInfo.environment["LISTEN_DATA_DIR"] { return URL(fileURLWithPath: custom) }
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("listen", isDirectory: true)
@@ -69,13 +62,6 @@ final class ListenDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
     func waitForService(_ remaining: Int) {
         if let data = try? Data(contentsOf: root.appendingPathComponent("connection.json")), let connection = try? JSONSerialization.jsonObject(with: data) as? [String: Any], connection["owner_pid"] as? Int == Int(ProcessInfo.processInfo.processIdentifier), let port = (connection["port"] as? Int) ?? Int(connection["port"] as? String ?? ""), let secret = connection["token"] as? String, let url = URL(string: "http://127.0.0.1:\(port)") {
             serviceURL = url; token = secret; loadPage("/discover")
-            let resume = (try? Data(contentsOf: root.appendingPathComponent("goodreads-browser.json"))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-            goodreadsEnabled = resume?["enabled"] as? Bool ?? false
-            if let feedData = try? Data(contentsOf: root.appendingPathComponent("goodreads-connection.json")), let feed = try? JSONSerialization.jsonObject(with: feedData) as? [String: Any], feed["enabled"] as? Bool == true { goodreadsEnabled = false }
-            goodreadsWindow = resume?["window"] as? Int
-            goodreadsUser = resume?["user"] as? String ?? ""
-            goodreadsRefreshStart = !goodreadsUser.isEmpty
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in if self.goodreadsEnabled && Date() >= self.goodreadsNext { self.pollGoodreads() } }
             let nativeConnection = (try? Data(contentsOf: root.appendingPathComponent("goodreads-native.json"))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
             if nativeConnection?["enabled"] as? Bool == true { grUser = nativeConnection?["user"] as? String ?? ""; connectNativeGoodreads(show: false) }
             if let pending = pendingBook { pendingBook = nil; handleBookURL(pending) }
@@ -107,23 +93,21 @@ final class ListenDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         NSApp.appearance = theme == "dark" ? NSAppearance(named: .darkAqua) : theme == "light" ? NSAppearance(named: .aqua) : nil
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.webView === web, let source = message.frameInfo.request.url, source.host == "127.0.0.1", source.port == serviceURL?.port, let body = message.body as? [String: Any], let command = body["command"] as? String else { return }
+        guard message.webView === web, let source = message.frameInfo.request.url, message.frameInfo.isMainFrame, source.scheme == "http", source.host == "127.0.0.1", source.port == serviceURL?.port, let body = message.body as? [String: Any], let command = body["command"] as? String else { return }
         switch command {
         case "goodreads-native-connect": connectNativeGoodreads(show: true)
         case "goodreads-native-refresh": refreshNativeGoodreads()
-        case "goodreads-connect": connectGoodreads()
         case "goodreads-disconnect":
-            grEnabled = false; grTimer?.invalidate(); grWeb?.stopLoading(); grWindow?.orderOut(nil); persistNativeGoodreads(); goodreadsEnabled = false; persistGoodreads(); post("/goodreads/connection", payload: ["action": "disconnect"]) { _, _ in self.loadPage("/discover") }
-        case "goodreads-refresh": goodreadsNext = .distantPast
+            grEnabled = false; grTimer?.invalidate(); grWeb?.stopLoading(); grWindow?.orderOut(nil); persistNativeGoodreads(); post("/goodreads/window", payload: ["action": "disconnect"]) { _, _ in self.loadPage("/discover") }
         case "appearance": applyAppearance()
         case "lock": lockWindow()
         case "folder": chooseFolder(body["kind"] as? String ?? "")
         case "clipboard": useClipboard()
         case "browser-book": web.evaluateJavaScript("window.dispatchEvent(new Event('listen-browser-dialog'));", completionHandler: nil)
-        case "safari-book", "goodreads-safari-book": captureSafari(mode: "book")
-        case "safari-shelf", "goodreads-safari-shelf", "goodreads-sync": captureSafari(mode: "shelf")
+        case "safari-book": captureSafari(mode: "book")
+        case "safari-shelf": captureSafari(mode: "shelf")
         case "magnet":
-            if let raw = body["url"] as? String, raw.hasPrefix("magnet:?"), raw.contains("xt=urn%3Abtih%3A") || raw.contains("xt=urn:btih:"), let url = URL(string: raw) { NSWorkspace.shared.open(url) }
+            if let raw = body["url"] as? String, raw.hasPrefix("magnet:?"), raw.contains("xt=urn%3Abtih%3A") || raw.contains("xt=urn:btih:"), let url = URL(string: raw) { if NSWorkspace.shared.open(url) { notify("Opened your default torrent app. Confirm the download there.") } else { notify("Install a torrent client that handles magnet links, or choose a direct client connection in Settings.") } }
         case "goodreads-signin": openBrowser(URL(string: "https://www.goodreads.com/user/sign_in")!)
         case "goodreads-shelves": openBrowser(URL(string: "https://www.goodreads.com/")!)
         case "goodreads-audiobooks": openBrowser(URL(string: "https://www.goodreads.com/list/show/426.Best_Audiobooks")!)
@@ -142,8 +126,10 @@ final class ListenDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
     }
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if webView === grWeb { decisionHandler(action.request.url?.scheme == "https" ? .allow : .cancel); return }
-        if action.navigationType == .linkActivated, let url = action.request.url, url.host != "127.0.0.1", ["http", "https"].contains(url.scheme ?? "") { openBrowser(url); decisionHandler(.cancel); return }
-        decisionHandler(.allow)
+        guard let url = action.request.url else { decisionHandler(.cancel); return }
+        if url.scheme == "http" && url.host == "127.0.0.1" && url.port == serviceURL?.port { decisionHandler(.allow); return }
+        if action.navigationType == .linkActivated && ["https", "http"].contains(url.scheme ?? "") { openBrowser(url) }
+        decisionHandler(.cancel)
     }
     func chooseFolder(_ kind: String) {
         guard ["downloads_folder", "completed_folder"].contains(kind) else { return }
@@ -215,9 +201,7 @@ JSON.stringify({url, page_title, html});
     func connectNativeGoodreads(show: Bool) {
         if show { grUser = "" }
         grEnabled = true; persistNativeGoodreads()
-        post("/goodreads/feed/disconnect", payload: [:]) { _, _ in
-            self.post("/goodreads/window", payload: ["action": "connecting"]) { _, _ in }
-        }
+        post("/goodreads/window", payload: ["action": "connecting"]) { _, _ in }
         if grWeb == nil {
             let config = WKWebViewConfiguration(); config.websiteDataStore = .default()
             let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 1000, height: 780), configuration: config)
@@ -225,7 +209,7 @@ JSON.stringify({url, page_title, html});
             grWindow = NSWindow(contentRect: view.frame, styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
             grWindow?.title = "Goodreads · listen."; grWindow?.contentView = view; grWindow?.isReleasedWhenClosed = false; grWindow?.center()
         }
-        if show { grWindow?.makeKeyAndOrderFront(nil) }
+        if show && lockOverlay == nil { grWindow?.makeKeyAndOrderFront(nil) }
         grTimer?.invalidate(); grTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in self.refreshNativeGoodreads() }
         refreshNativeGoodreads()
     }
@@ -234,12 +218,19 @@ JSON.stringify({url, page_title, html});
         let path = grUser.isEmpty ? "/user/sign_in" : "/review/list/" + grUser + "?shelf=all&per_page=100&page=1"
         grWeb?.load(URLRequest(url: URL(string: "https://www.goodreads.com" + path)!))
     }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code == NSURLErrorCancelled { return }
+        if webView === grWeb && grEnabled { grBusy = false; post("/goodreads/window", payload: ["action": "unavailable"]) { _, _ in } }
+    }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        self.webView(webView, didFail: navigation, withError: error)
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard webView === grWeb, grEnabled, !grBusy, let url = webView.url else { return }
         guard url.scheme == "https", ["www.goodreads.com","goodreads.com"].contains(url.host ?? "") else { return }
         let path = url.path
         if path.contains("sign_in") || path.contains("sign_up") || path.contains("/ap/") {
-            grWindow?.makeKeyAndOrderFront(nil)
+            if lockOverlay == nil { grWindow?.makeKeyAndOrderFront(nil) }
             post("/goodreads/window", payload: ["action": "needs-signin"]) { _, _ in }; return
         }
         guard path == "/" || path.hasPrefix("/user/show/") || path.hasPrefix("/review/list/") else { return }
@@ -257,98 +248,14 @@ JSON.stringify({url, page_title, html});
                     DispatchQueue.main.asyncAfter(deadline:.now()+1) { if self.grEnabled { self.grWeb?.load(URLRequest(url:target)) } }
                 } else if action == "complete" {
                     self.grWindow?.orderOut(nil)
-                    self.web.evaluateJavaScript("window.dispatchEvent(new Event('goodreadsSynced'));", completionHandler:nil)
+                    if body["changed"] as? Bool == true { self.web.evaluateJavaScript("window.dispatchEvent(new Event('goodreadsSynced'));", completionHandler:nil) }
+                    else { self.web.evaluateJavaScript("if(typeof refreshGoodreads==='function')refreshGoodreads();", completionHandler:nil) }
                 }
             }
         }
     }
-    func persistGoodreads() {
-        let value: [String: Any] = ["enabled": goodreadsEnabled, "window": goodreadsWindow ?? 0, "user": goodreadsUser]
-        if let data = try? JSONSerialization.data(withJSONObject: value) { let path = root.appendingPathComponent("goodreads-browser.json"); try? data.write(to: path, options: .atomic); try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path) }
-    }
-    func safariScript(_ script: String, completion: @escaping ([String: Any]?, String) -> Void) {
-        DispatchQueue.global(qos: .utility).async {
-            let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript"); p.arguments = ["-l", "JavaScript", "-e", script]
-            let out = Pipe(); let err = Pipe(); p.standardOutput = out; p.standardError = err
-            do { try p.run() } catch { DispatchQueue.main.async { completion(nil, "Safari could not start.") }; return }
-            DispatchQueue.global().asyncAfter(deadline: .now() + 30) { if p.isRunning { p.terminate() } }
-            let bytes = out.fileHandleForReading.readDataToEndOfFile(); let errors = err.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
-            let value = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any]
-            DispatchQueue.main.async { completion(p.terminationStatus == 0 ? value : nil, String(data: errors, encoding: .utf8) ?? "") }
-        }
-    }
-    func connectGoodreads() {
-        guard !safariBusy else { return }
-        if goodreadsEnabled, let id = goodreadsWindow { safariScript("const s=Application('Safari');s.activate();const w=s.windows().filter(w=>w.id()===\(id));if(w.length!==1)throw Error('Closed');w[0].index=1;JSON.stringify({ok:true});") { value, _ in if value == nil { self.goodreadsEnabled = false; self.connectGoodreads() } }; return }
-        safariBusy = true
-        post("/goodreads/connection", payload: ["action": "connecting"]) { _, _ in }
-        // A separate window avoids reading or changing the user's other Safari tabs.
-        safariScript(#"""
-const s=Application('Safari'); s.activate();
-s.documents.push(s.Document({url:'https://www.goodreads.com/user/sign_in'}));
-JSON.stringify({window:s.windows[0].id()});
-"""#) { result, _ in
-            self.safariBusy = false
-            guard let id = result?["window"] as? Int else { self.goodreadsFailure(); return }
-            self.goodreadsWindow = id; self.goodreadsUser = ""; self.goodreadsPage = 1; self.goodreadsEnabled = true; self.goodreadsNext = .distantPast; self.persistGoodreads()
-            self.notify("Sign in to Goodreads in Safari. Your books will appear automatically.")
-        }
-    }
-    func goodreadsFailure() {
-        goodreadsEnabled = false; persistGoodreads()
-        post("/goodreads/connection", payload: ["action": "unavailable"]) { _, _ in self.web.evaluateJavaScript("if(typeof refreshGoodreads==='function')refreshGoodreads();", completionHandler: nil) }
-        notify("Reconnect Goodreads. If asked, allow listen. to access Safari in System Settings → Privacy & Security → Automation.")
-    }
-    func pollGoodreads() {
-        guard !safariBusy, let id = goodreadsWindow, id > 0 else { return }
-        if goodreadsRefreshStart && !goodreadsUser.isEmpty { goodreadsRefreshStart = false; safariBusy = true; navigateGoodreads("https://www.goodreads.com/review/list/" + goodreadsUser + "?shelf=all&per_page=100&page=1"); return }
-        safariBusy = true
-        // Only read source after checking a dedicated single-tab window and safe page path.
-        let script = "const windowId = \(id);\n" + #"""
-const s=Application('Safari');
-if(!s.running())throw Error('Safari is closed');
-const wins=s.windows().filter(w=>w.id()===windowId);
-if(wins.length!==1 || wins[0].tabs().length!==1)throw Error('Reconnect Goodreads');
-const t=wins[0].tabs[0];const url=String(t.url());
-if(!/^https:\/\/(?:www\.)?goodreads\.com\/(?:$|[?#]|review\/list\/\d+|user\/show\/\d+)/i.test(url)){
- JSON.stringify({action:'signin'});
-}else{
- const html=String(t.source());
- if(String(t.url())!==url || html.length>5000000)throw Error('Page changed');
- JSON.stringify({url,html});
-}
-"""#
-        safariScript(script) { result, _ in
-            guard self.goodreadsEnabled else { self.safariBusy = false; return }
-            guard var body = result else { self.safariBusy = false; self.goodreadsFailure(); return }
-            if body["action"] as? String == "signin" {
-                self.safariBusy = false
-                self.post("/goodreads/connection", payload: ["action": "needs-signin"]) { _, _ in }; return
-            }
-            body["user_id"] = self.goodreadsUser; body["page"] = self.goodreadsPage
-            self.post("/goodreads/connection", payload: body) { response, error in
-                guard self.goodreadsEnabled else { self.safariBusy = false; return }
-                guard let response = response, error == nil else { self.safariBusy = false; self.goodreadsFailure(); return }
-                if let user = response["user_id"] as? String { self.goodreadsUser = user; self.persistGoodreads() }
-                let action = response["action"] as? String ?? "wait"
-                if action == "background" { self.goodreadsEnabled = false; self.persistGoodreads(); self.safariBusy = false; self.loadPage("/discover"); self.notify("Goodreads connected directly. You can close Safari."); return }
-                if action == "navigate", let url = response["url"] as? String { self.goodreadsPage = response["page"] as? Int ?? 1; self.navigateGoodreads(url) }
-                else if action == "complete" {
-                    self.goodreadsNext = Date().addingTimeInterval(300); self.goodreadsPage = 1; self.goodreadsRefreshStart = true
-                    self.safariBusy = false
-                    self.web.evaluateJavaScript("window.dispatchEvent(new Event('goodreadsSynced'));", completionHandler: nil)
-                    // Refresh navigation occurs only in the dedicated Goodreads window.
-                } else { self.safariBusy = false }
-            }
-        }
-    }
-    func navigateGoodreads(_ url: String) {
-        guard let id = goodreadsWindow, let u = URL(string: url), u.scheme == "https", u.host == "www.goodreads.com", u.path == "/review/list/" + goodreadsUser, let bytes = try? JSONSerialization.data(withJSONObject: url, options: .fragmentsAllowed), let quoted = String(data: bytes, encoding: .utf8) else { safariBusy = false; goodreadsFailure(); return }
-        let script = "const s=Application('Safari');const w=s.windows().filter(w=>w.id()===\(id));if(w.length!==1||w[0].tabs().length!==1)throw Error('Reconnect');w[0].tabs[0].url=\(quoted);JSON.stringify({ok:true});"
-        safariScript(script) { result, _ in self.safariBusy = false; self.goodreadsNext = Date().addingTimeInterval(4); if result == nil { self.goodreadsFailure() } }
-    }
     @objc func lockWindow() {
-        guard lockOverlay == nil else { return }; web.isHidden = true
+        guard lockOverlay == nil else { return }; grWindow?.orderOut(nil); web.isHidden = true
         let overlay = NSVisualEffectView(frame: window.contentView!.bounds); overlay.material = .underWindowBackground; overlay.autoresizingMask = [.width, .height]
         let group = NSView(frame: NSRect(x: (overlay.bounds.width - 400) / 2, y: (overlay.bounds.height - 260) / 2, width: 400, height: 260)); group.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
         let icon = NSImageView(frame: NSRect(x: 160, y: 175, width: 80, height: 80)); icon.image = NSImage(named: NSImage.applicationIconName); group.addSubview(icon)
@@ -362,6 +269,6 @@ if(!/^https:\/\/(?:www\.)?goodreads\.com\/(?:$|[?#]|review\/list\/\d+|user\/show
         if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) { context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock your listen. window") { success, _ in DispatchQueue.main.async { if success { self.lockOverlay?.removeFromSuperview(); self.lockOverlay = nil; self.web.isHidden = false } } } }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-    func applicationWillTerminate(_ notification: Notification) { refreshTimer?.invalidate(); grTimer?.invalidate(); server?.terminate() }
+    func applicationWillTerminate(_ notification: Notification) { grTimer?.invalidate(); server?.terminate() }
 }
 let delegate = ListenDelegate(); NSApplication.shared.delegate = delegate; NSApplication.shared.setActivationPolicy(.regular); NSApplication.shared.run()

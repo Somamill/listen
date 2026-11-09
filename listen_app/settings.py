@@ -1,14 +1,14 @@
 from __future__ import annotations
 import copy,json,os,tempfile
-from pathlib import Path
+from pathlib import Path,PureWindowsPath
 from urllib.parse import urlparse
 
 DEFAULTS={
  'theme':'system','languages':[], 'categories':[], 'excluded_categories':[], 'include_unknown_language':True,
  'catalog_host':'audiobookbay.lu','search_pages':2,
- 'client':{'type':'qbittorrent','url':'http://127.0.0.1:8080','username':'','category':'listen'},
+ 'client':{'type':'magnet','url':'http://127.0.0.1:8080','username':'','category':'listen'},
  'downloads_folder':'','completed_folder':'','stage_incomplete':True,
- 'browser':'default','auto_refresh_safari':False,'auto_start_client':True,
+ 'browser':'default','auto_start_client':True,
 }
 
 def data_dir():
@@ -32,7 +32,8 @@ def load():
     config=copy.deepcopy(DEFAULTS)
     if isinstance(raw,dict):
         config.update({k:v for k,v in raw.items() if k in DEFAULTS})
-        config['client']={**DEFAULTS['client'],**raw.get('client',{})}
+        stored_client=raw.get('client',{})
+        config['client']={**DEFAULTS['client'],**(stored_client if isinstance(stored_client,dict) else {})}
     if not config['downloads_folder']:config['downloads_folder']=str(Path.home()/'Downloads/listen')
     return config
 
@@ -46,7 +47,7 @@ def validate(payload):
     for key in ('languages','categories','excluded_categories'):
         if not isinstance(cfg[key],list) or len(cfg[key])>100:raise ValueError('Invalid filters.')
         cfg[key]=list(dict.fromkeys(str(v).strip()[:80] for v in cfg[key] if str(v).strip()))
-    for key in ('include_unknown_language','stage_incomplete','auto_refresh_safari','auto_start_client'):
+    for key in ('include_unknown_language','stage_incomplete','auto_start_client'):
         if not isinstance(cfg[key],bool):raise ValueError('Invalid option.')
     try:cfg['search_pages']=int(cfg['search_pages'])
     except (ValueError,TypeError):raise ValueError('Choose 1 to 5 search pages.')
@@ -58,12 +59,15 @@ def validate(payload):
     if not isinstance(client,dict) or client.get('type') not in ('qbittorrent','transmission','deluge','magnet'):raise ValueError('Choose a torrent client.')
     client={k:str(client.get(k,DEFAULTS['client'][k])).strip()[:500] for k in DEFAULTS['client']}
     if client['type']!='magnet':
-        u=urlparse(client['url'])
-        if u.scheme not in ('http','https') or not u.hostname or u.username or u.password or u.query or u.fragment:raise ValueError('Use a client URL without embedded credentials.')
+        try:
+            u=urlparse(client['url']);port=u.port
+        except ValueError:raise ValueError('Use a valid client URL and port.')
+        if u.scheme not in ('http','https') or not u.hostname or u.username or u.password or u.query or u.fragment or (port is not None and not 1<=port<=65535):raise ValueError('Use a client URL without embedded credentials.')
     cfg['client']=client
+    remote=client['type']!='magnet' and urlparse(client['url']).hostname not in ('localhost','127.0.0.1','::1')
     for key in ('downloads_folder','completed_folder'):
         val=str(cfg[key]).strip()
-        if val and (not Path(val).is_absolute() or '\x00' in val):raise ValueError('Choose an absolute destination folder.')
+        if val and (not (Path(val).is_absolute() or (remote and PureWindowsPath(val).is_absolute())) or '\x00' in val):raise ValueError('Choose an absolute destination folder.')
         cfg[key]=val
     return cfg
 

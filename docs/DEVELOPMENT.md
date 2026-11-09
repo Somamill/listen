@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- `native/Listen.swift`: AppKit/WebKit shell, local process lifecycle, browser handoff, folder picker, Mac authentication window lock, and Safari Automation bridge.
+- `native/Listen.swift`: AppKit/WebKit shell, local process lifecycle, browser handoff, folder picker, Mac authentication window lock, a persistent Goodreads WebKit session, and optional manual Safari import.
 - `listen_app/server.py`: authenticated loopback UI and application routes.
 - `listen_app/catalog.py`: HTTPS catalog parsing and metadata filters.
 - `listen_app/clients.py`: qBittorrent, Transmission, Deluge, and magnet adapters.
@@ -14,8 +14,9 @@
 ## Tests
 
 ```bash
-python -m pip install -e '.[build]'
+python -m pip install -c constraints.txt -e '.[build]'
 python -m unittest discover -s tests -v
+python scripts/check_frontend.py  # requires Node.js for syntax checks
 python -m pip_audit
 ```
 
@@ -25,7 +26,7 @@ Set `LISTEN_DATA_DIR` to a temporary directory to isolate development, previews,
 
 ## Build
 
-Use Python 3.12+, Xcode Command Line Tools, and a matching-architecture Mac. `python scripts/build_macos.py --dmg` creates architecture-labeled ZIP and DMG files and SHA-256 checksums in `dist/`. The app is built in a temporary directory outside synchronized folders; its location is printed and saved in `build/app-path.txt`. Python is bundled. This is not a universal binary: build Apple Silicon and Intel separately.
+Use Python 3.12 for release builds, Xcode Command Line Tools, and a matching-architecture Mac. `python scripts/build_macos.py --dmg` creates architecture-labeled ZIP and DMG files and SHA-256 checksums in `dist/`. The app is built in a temporary directory outside synchronized folders; its location is printed and saved in `build/app-path.txt`. Python is bundled. This is not a universal binary: build Apple Silicon and Intel separately.
 
 `LISTEN_SIGN_IDENTITY` can select a locally available code-signing identity. Default builds use ad-hoc signing. Developer ID signing and Apple notarization require the maintainer’s own Apple credentials and are not performed or claimed by the default workflow.
 
@@ -36,3 +37,5 @@ Default app data lives under the current user’s `Library/Application Support/l
 ## Contributing
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md). Keep credentials and private content out of test fixtures. Use small, synthetic fixtures for parsers and adapter tests. External website markup can change; handle failures explicitly and never disable certificate checks to make a parser work.
+
+Release CI pins its action revisions and uses constraints.txt for the tested dependency versions. Both architectures exercise the frozen service with clean app data, neutral defaults, authenticated pages, and an unauthenticated-request rejection before archives are published. Dependency audit runs separately.

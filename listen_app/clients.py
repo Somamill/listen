@@ -1,6 +1,7 @@
 from __future__ import annotations
 from urllib.parse import urlparse
-from pathlib import Path
+from collections.abc import Mapping
+from pathlib import Path,PureWindowsPath
 import sys,subprocess,time,threading
 from . import settings
 from .health import describe
@@ -99,18 +100,26 @@ def add(magnet,title,destination='default',config=None):
     folder=cfg['downloads_folder']
     if not folder:raise ClientError('Choose this destination folder in Settings first.')
     u,_=_endpoint(cfg);local=u.hostname in ('127.0.0.1','localhost','::1')
-    if local and destination=='default':Path(folder).mkdir(parents=True,exist_ok=True)
+    try:
+        if local and destination=='default':Path(folder).mkdir(parents=True,exist_ok=True)
+    except OSError as exc:raise ClientError('The downloads folder is not writable. Choose an accessible folder in Settings.') from exc
     if local and not Path(folder).is_dir():raise ClientError('The destination folder is unavailable. Check Settings and your cloud drive.')
-    save_path=str(Path(folder)/safe_title(title));extra={}
+    path_type=PureWindowsPath if not local and PureWindowsPath(folder).drive else Path
+    save_path=str(path_type(folder)/safe_title(title));extra={}
     if cfg['stage_incomplete'] and local and kind in ('qbittorrent','deluge'):
         if not local:raise ClientError('Local staging is only supported for a torrent client on this Mac. Disable staging for a remote client.')
-        staging=settings.data_dir()/'Incomplete';staging.mkdir(parents=True,exist_ok=True)
+        staging=settings.data_dir()/'Incomplete'
+        try:staging.mkdir(parents=True,exist_ok=True)
+        except OSError as exc:raise ClientError('The incomplete-downloads folder is not writable. Check this Mac’s folder permissions.') from exc
         extra={'download_path':str(staging),'use_download_path':True}
     try:
         c,_=_connect_for_add(cfg)
         if kind=='qbittorrent':
             result=c.torrents_add(urls=magnet,save_path=save_path,category=cfg['client']['category'],use_auto_torrent_management=False,**extra)
             if isinstance(result,str) and result.strip().lower() not in ('ok.','ok'):raise ClientError('qBittorrent rejected this torrent link. Check that the edition still has a valid torrent or magnet link.')
+            if isinstance(result,Mapping):
+                if result.get('failure_count',0):raise ClientError('qBittorrent rejected this torrent link. Check that the edition still has a valid torrent or magnet link.')
+                if not (result.get('success_count',0) or result.get('pending_count',0) or result.get('added_torrent_ids')):raise ClientError('qBittorrent did not confirm a new download. Check Downloads; the torrent may already be there.')
         elif kind=='transmission':
             if extra:raise ClientError('Per-download local staging is supported by qBittorrent and Deluge. Configure Transmission’s own incomplete directory or disable staging.')
             c.add_torrent(magnet,download_dir=save_path)

@@ -1,23 +1,25 @@
-## listen. 0.2.3 · public beta
+## listen. 0.3.0 · release-readiness beta
 
-A glass-inspired audiobook discovery app for macOS, with the ◒ icon.
+A portable audiobook discovery app for macOS 13+, with separate Apple Silicon and Intel downloads.
 
-- Light, dark, and system appearance; language and category filters.
-- Persistent Goodreads sign-in inside listen., independent of Safari, and automatic My Books refresh while the app is open.
-- Separate Want to Read, Currently Reading, Read, and Did Not Finish sections from your Goodreads shelves.
-- Larger metadata covers, with a restricted private image cache and a typographic fallback.
-- Goodreads books linked to audiobook-edition searches; downloads start only when you choose an edition.
-- Automatically open local qBittorrent when adding a download, wait for its Web UI, and show clear connection/login errors. Remote clients are not launched.
-- qBittorrent, Transmission, and Deluge Web adapters; magnet handoff for other clients.
-- Live torrent-health badges and all-torrent status.
-- Local-first downloads and explicit Send to library transfers, including client-aware moves for seeding.
-- Follow valid catalog HTTPS redirects, preserve searches, normalize mixed-case queries, and use the canonical first search page; unapproved destinations remain blocked.
-- Fixed embedded-browser form origin errors and startup packaging; background library scanning.
+- New installs use the default torrent app without requiring a Web UI or embedded credentials. Existing direct-client settings are preserved.
+- Optional qBittorrent, Transmission, and Deluge connections provide status, torrent health, and client-aware library moves. Local qBittorrent opens automatically when needed.
+- Persistent Goodreads sign-in inside listen., automatic shelf refresh while open, and separate Want to Read, Currently Reading, Read, and Did Not Finish tabs.
+- Higher-resolution metadata covers, light/dark/system appearance, and the ◒ app icon.
+- Catalog search normalization and approved HTTPS redirects; language/category filters are reapplied before adding an edition.
+- Local-first downloads for direct local clients and an explicit Send to library action.
+- Removed obsolete public-feed and automatic Safari connection experiments, unused endpoints, and stale messages.
+- Hardened local navigation, malformed-request handling, session error recovery, window lock, and orphan-service shutdown. Existing local listening-progress keys remain compatible.
+- Pinned dependency versions and CI action revisions; dependency audit and clean-data frozen-service checks run before release packaging.
 
-### Downloads
+### Install and update
 
-Choose arm64 for Apple Silicon or x86_64 for Intel. The Python runtime is included; a torrent client is separate. SHA-256 checksums are attached.
+Download arm64 for Apple Silicon or x86_64 for Intel, open the DMG, and drag listen.app to Applications. No Python, Homebrew, or Docker is needed. Install a compatible torrent app separately. To update, quit listen. and replace its app bundle; per-user preferences, client downloads, and Goodreads session are retained.
 
-### Beta limits
+### Distribution and service limits
 
-Ad-hoc signed, not Developer ID signed or notarized. macOS may block downloaded binaries. macOS 13+ only. Client adapters have automated coverage, with live qBittorrent checks; other client versions require validation. Goodreads depends on website markup and a valid session; session expiry requires signing in again. Refresh is read-only, limited to 2,000 books per cycle, and runs while listen. is open. This is not official OAuth or two-way Goodreads sync. Some sign-in providers may restrict embedded browser sign-in. Public feed availability varies. Catalog availability depends on the external site. Torrent health does not verify file safety or anonymity.
+This is an **ad-hoc signed, unnotarized public beta**, not a Developer ID distribution. macOS or organizational policy may block opening it. Follow Apple’s documented approval process; do not disable security protections. No automated check can certify every Mac, client version, or torrent.
+
+Goodreads requires your own sign-in. Its session can expire; website changes or sign-in provider restrictions can interrupt sync. Refresh is read-only, runs while listen. is open, and is limited to 2,000 books per cycle. Catalog availability depends on the external site. Magnet handoff delegates destinations/status to the default client. Transmission and Deluge adapters have automated coverage but are not live-certified against all server versions. Torrent health is not file-safety or anonymity verification. listen. does not change system VPN, DNS, proxy, firewall, or torrent privacy settings.
+
+See the repository’s setup, privacy, and release-readiness documents for the full support boundaries.

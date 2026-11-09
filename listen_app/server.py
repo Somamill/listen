@@ -1,10 +1,12 @@
 from __future__ import annotations
 import argparse,hashlib,hmac,threading,json,logging,os,secrets,time
-from pathlib import Path
 from urllib.parse import urlparse,urljoin
-from flask import Flask,request,render_template,jsonify,make_response
+from flask import Flask,request,render_template,jsonify
 from . import __version__,settings,catalog,clients
 
+
+def same_secret(value,expected):
+    return isinstance(value,str) and hmac.compare_digest(value.encode('utf-8'),expected.encode('utf-8'))
 
 def create_app():
     app=Flask(__name__);app.config['MAX_CONTENT_LENGTH']=6*1024*1024
@@ -15,8 +17,6 @@ def create_app():
         with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(32))
     token=token_file.read_text().strip()
     app.config['SERVICE_TOKEN']=token;app.config['BOUND_PORT']=0
-    from .goodreads_feed import feed
-    app.register_blueprint(feed)
     from .covers import covers
     app.register_blueprint(covers)
     csrf=hmac.new(token.encode(),b'listen.form.csrf',hashlib.sha256).hexdigest()
@@ -30,19 +30,20 @@ def create_app():
         port=app.config['BOUND_PORT']
         if request.host != f'127.0.0.1:{port}':return 'Invalid host',403
         provided=request.headers.get('X-Listen-Token') or request.cookies.get('listen_session','')
-        if not hmac.compare_digest(provided,token):return 'Open listen. to use this local service.',401
+        if not same_secret(provided,token):return 'Open listen. to use this local service.',401
         if request.method not in ('GET','HEAD','OPTIONS'):
             origin=request.headers.get('Origin');referer=request.headers.get('Referer','')
             allowed=f'http://127.0.0.1:{port}'
-            native_auth=hmac.compare_digest(request.headers.get('X-Listen-Token',''),token)
+            native_auth=same_secret(request.headers.get('X-Listen-Token',''),token)
             same_origin=(origin==allowed or (origin in (None,'null') and referer.startswith(allowed+'/')))
-            form_auth=hmac.compare_digest(request.headers.get('X-Listen-CSRF') or request.form.get('_csrf',''),csrf)
+            form_auth=same_secret(request.headers.get('X-Listen-CSRF') or request.form.get('_csrf',''),csrf)
             if origin not in (None,'null',allowed):return 'Invalid origin',403
             if not (same_origin or native_auth or form_auth):return 'Invalid origin',403
+        if request.is_json and request.method not in ('GET','HEAD','OPTIONS') and not isinstance(request.get_json(silent=True),dict):return jsonify(error='Use a JSON object for this action.',message='Use a JSON object for this action.'),400
 
     @app.after_request
     def response_security(response):
-        if hmac.compare_digest(request.headers.get('X-Listen-Token',''),token):
+        if same_secret(request.headers.get('X-Listen-Token',''),token):
             response.set_cookie('listen_session',token,httponly=True,samesite='Strict',path='/')
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['X-Frame-Options']='DENY'
@@ -205,12 +206,19 @@ def main():
     parser=argparse.ArgumentParser(description='listen. private loopback service')
     parser.add_argument('--port',type=int,default=0);args=parser.parse_args()
     app=create_app()
-    from .goodreads_feed import start
-    start()
     from waitress import create_server
     service=create_server(app,host='127.0.0.1',port=args.port,threads=6)
     port=int(service.effective_port);app.config['BOUND_PORT']=port
     settings.atomic_json(settings.data_dir()/'connection.json',{'port':port,'pid':os.getpid(),'owner_pid':int(os.environ.get('LISTEN_OWNER_PID','0')),'token':app.config['SERVICE_TOKEN'],'version':__version__})
+    owner=int(os.environ.get('LISTEN_OWNER_PID','0'))
+    if owner:
+        def watch_owner():
+            while True:
+                time.sleep(2)
+                try:os.kill(owner,0)
+                except ProcessLookupError:os._exit(0)
+                except PermissionError:pass
+        threading.Thread(target=watch_owner,daemon=True).start()
     logging.getLogger('waitress').setLevel(logging.ERROR)
     try:service.run()
     finally:
