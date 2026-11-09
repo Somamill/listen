@@ -1,5 +1,5 @@
 """Catalog parsing adapted from JamesRy96/audiobookbay-automated (MIT)."""
-import re
+import re,time
 from urllib.parse import urljoin,urlparse,urlencode,parse_qs
 import requests
 from bs4 import BeautifulSoup
@@ -40,6 +40,24 @@ def valid_catalog_url(url):
         return parsed.scheme=='https' and parsed.hostname in CATALOG_HOSTS and parsed.port in (None,443) and not parsed.username and not parsed.password
     except ValueError:return False
 
+def _request(url):
+    for attempt in range(2):
+        try:response=requests.get(url,headers=UA,timeout=(4,10),allow_redirects=False)
+        except requests.exceptions.SSLError as exc:raise CatalogError('The catalog’s secure connection could not be verified. Choose another approved catalog host in Settings or try again later.') from exc
+        except (requests.Timeout,requests.ConnectionError) as exc:
+            if attempt==0:time.sleep(.6);continue
+            raise CatalogError('The catalog did not respond after a retry. Check your connection or try again shortly.') from exc
+        if response.status_code in (500,502,503,504):
+            retry_after=response.headers.get('Retry-After','')
+            if attempt==0 and not retry_after:time.sleep(.6);continue
+            raise CatalogError('The catalog’s search server is having a temporary problem. Your downloads are unaffected; try searching again shortly.')
+        if response.status_code==429:raise CatalogError('The catalog is asking us to slow down. Wait a little before searching again.')
+        if response.status_code==404:raise CatalogError('The catalog could not find this search page. Try a shorter book title or author.')
+        if response.status_code in (401,403):raise CatalogError('The catalog refused this request. Open the catalog in your browser to check its access requirements.')
+        response.raise_for_status()
+        return response
+    raise CatalogError('The catalog is temporarily unavailable. Please try again shortly.')
+
 def fetch(url,cfg=None):
     cfg=cfg or settings.load()
     if not valid_catalog_url(url):raise CatalogError('Invalid catalog link.')
@@ -49,8 +67,7 @@ def fetch(url,cfg=None):
         for _ in range(6):
             if url in seen:raise CatalogError('The catalog is redirecting in a loop. Please try again later.')
             seen.add(url)
-            response=requests.get(url,headers=UA,timeout=20,allow_redirects=False)
-            response.raise_for_status()
+            response=_request(url)
             if 300<=response.status_code<400:
                 location=response.headers.get('Location')
                 if not location:raise CatalogError('The catalog returned an incomplete redirect. Please try again later.')
@@ -63,7 +80,7 @@ def fetch(url,cfg=None):
             soup._listen_catalog_url=url
             return soup
         raise CatalogError('The catalog redirected too many times. Please try again later.')
-    except requests.RequestException as exc:raise CatalogError('The catalog is unavailable. Try again later; certificate validation stays enabled.') from exc
+    except requests.RequestException as exc:raise CatalogError('The catalog returned an unexpected response. Please try again shortly.') from exc
 
 def search(query,cfg=None):
     cfg=cfg or settings.load();results=[];seen=set()

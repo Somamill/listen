@@ -1,4 +1,4 @@
-## listen. 0.3.0 · release-readiness beta
+## listen. 0.3.1 · release-readiness beta
 
 A portable audiobook discovery app for macOS 13+, with separate Apple Silicon and Intel downloads.
 
@@ -6,6 +6,7 @@ A portable audiobook discovery app for macOS 13+, with separate Apple Silicon an
 - Optional qBittorrent, Transmission, and Deluge connections provide status, torrent health, and client-aware library moves. Local qBittorrent opens automatically when needed.
 - Persistent Goodreads sign-in inside listen., automatic shelf refresh while open, and separate Want to Read, Currently Reading, Read, and Did Not Finish tabs.
 - Higher-resolution metadata covers, light/dark/system appearance, and the ◒ app icon.
+- Retry temporary catalog server/network failures once; distinguish outages, certificate failures, rate limits, and missing searches. Never retry a rejected certificate or evade rate limits.
 - Catalog search normalization and approved HTTPS redirects; language/category filters are reapplied before adding an edition.
 - Local-first downloads for direct local clients and an explicit Send to library action.
 - Removed obsolete public-feed and automatic Safari connection experiments, unused endpoints, and stale messages.

@@ -1,4 +1,4 @@
-# listen. 0.3.0 release-readiness check
+# listen. 0.3.1 release-readiness check
 
 Checked 9 November 2026. This is a tested **public beta**, with the distribution and external-service limits below.
 
@@ -6,7 +6,7 @@ Checked 9 November 2026. This is a tested **public beta**, with the distribution
 
 | Area | Result and evidence |
 | --- | --- |
-| Application tests | 34 tests covering local authentication, Host/origin checks, malformed requests, metadata filtering, reading shelves, imports, client adapters, startup, add-result handling, and local transfer safeguards. |
+| Application tests | 35 tests covering local authentication, Host/origin checks, malformed requests, metadata filtering, reading shelves, imports, client adapters, startup, add-result handling, and local transfer safeguards. |
 | Frontend | Five rendered pages and 20 inline scripts pass Node.js syntax checks, along with the standalone browser script. Swift shell type-checks. |
 | Clean installation | The frozen service is started with a new data directory before packaging. All five pages open, private connection-file permissions and authentication are checked, and neutral preferences are asserted. No existing Mac configuration is required. |
 | Architecture packages | Release CI builds Apple Silicon and Intel independently, runs tests and frontend checks, verifies the actual frozen-service startup contract, signs/verifies the bundle ad hoc, and creates ZIP/DMG files and SHA-256 manifests. Publishing depends on both builds passing. |

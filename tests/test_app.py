@@ -217,6 +217,22 @@ class ListenTests(unittest.TestCase):
             self.assertEqual(get.call_count,1)
         with patch('requests.get',return_value=response(302,'/')),self.assertRaisesRegex(catalog.CatalogError,'dropped this search'):
             catalog.fetch('https://audiobookbay.lu/?s=aesop',self.cfg)
+    def test_catalog_retries_temporary_failure_once_and_keeps_tls_checks(self):
+        import requests
+        def response(status):
+            r=requests.Response();r.status_code=status;r._content=b'<html><div class="post">Synthetic result</div></html>';return r
+        with patch('requests.get',side_effect=[response(500),response(200)]) as get,patch.object(catalog.time,'sleep'):
+            self.assertIsNotNone(catalog.fetch('https://audiobookbay.lu/?s=example').select_one('.post'));self.assertEqual(get.call_count,2)
+        with patch('requests.get',return_value=response(503)) as get,patch.object(catalog.time,'sleep'),self.assertRaisesRegex(catalog.CatalogError,'temporary problem'):
+            catalog.fetch('https://audiobookbay.lu/?s=example')
+        self.assertEqual(get.call_count,2)
+        with patch('requests.get',side_effect=requests.exceptions.SSLError('synthetic')) as get,self.assertRaisesRegex(catalog.CatalogError,'secure connection'):
+            catalog.fetch('https://audiobookbay.lu/?s=example')
+        self.assertEqual(get.call_count,1)
+        with patch('requests.get',return_value=response(429)) as get,self.assertRaisesRegex(catalog.CatalogError,'slow down'):
+            catalog.fetch('https://audiobookbay.lu/?s=example')
+        self.assertEqual(get.call_count,1)
+
     def test_catalog_uses_canonical_first_search_page(self):
         with patch.object(catalog,'fetch',return_value=BeautifulSoup('<html></html>','html.parser')) as fetch:
             catalog.search('Aesop',self.cfg)
@@ -253,7 +269,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.3.0');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.3.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

@@ -1,4 +1,7 @@
-<p align="center"><img src="docs/images/hero.svg" alt="listen. — audiobook discovery for macOS with Goodreads connections, torrent health, and light and dark glass interfaces" width="100%"></p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/listen-audiobook-discovery-dark.png">
+  <img src="docs/images/listen-macos-audiobook-discovery-hero.png" alt="listen. audiobook discovery for Mac — glass books and the circle brand mark in sage, ivory, and forest green" width="100%">
+</picture>
 
 <p align="center">
 <a href="https://github.com/Somamill/listen/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Somamill/listen?include_prereleases&label=download&color=8d9e78"></a>
@@ -11,6 +14,8 @@
 <p align="center"><strong>A little time. A whole new world.</strong><br>A glass-inspired audiobook discovery app for macOS, with Goodreads connections and your favorite torrent client.</p>
 
 <p align="center"><a href="https://github.com/Somamill/listen/releases">Download for Mac</a> · <a href="docs/GETTING_STARTED.md">Get started</a> · <a href="docs/PRIVACY.md">Privacy</a> · <a href="https://github.com/Somamill/listen/issues">Report a problem</a></p>
+
+<p align="center"><sub>Illustrated brand artwork · light and dark versions · see <a href="docs/images/ARTWORK.md">artwork notes</a></sub></p>
 
 ## Your reading world, ready to listen
 
