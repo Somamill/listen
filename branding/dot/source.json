@@ -1,19 +1,20 @@
 {
   "repository": "Somamill/dot-brand-kit",
-  "commit": "97de9e866bab7e9477ae39120c34f11f65a4f0f8",
-  "version": "1.0.0",
+  "commit": "427124600bfb908cbb3a75bbd2a41c9f18dc5a9a",
+  "version": "1.1.0",
   "files": {
     "LICENSE": "2baf725a745aecb0ca627d828305bb6130ea7dcab9be3ede0249996dce0b092e",
-    "check.py": "d63be7e2d7019a769b98524b75dca63eddf166b1821d5d9f03413a0d50cd681b",
+    "check.py": "9166085ab29649a24c75654cf37e4f5619a87eab4a4e462a55090e4c28cac4b8",
+    "guidelines/adoption.md": "bffcddf4b8ba1800ce451f9580954046b5453c73444f6c0ef908ebb3621463ee",
     "guidelines/copy.md": "5c4d6696ded7c647a0bde5bbceef8689551da462ed7923033e79a13e8da8264d",
-    "guidelines/identity.md": "235406e8db2e6883edee2f822e2374fe489593ebef082d51385f73704cbcf4a0",
+    "guidelines/identity.md": "73cc7cbb875cb09ada99ac8bdad84bda400f1202ecc092d3f6cb830bc73cf151",
     "guidelines/releases.md": "ea7f852a378f42c20b8ae5b4526ff6ed63f3ae277b5c6077aed407f5c4e41374",
     "logos/dot-mark.svg": "f61db42933389405eaea787cc149500fdea0949c121587d5ea2072f3af54403b",
     "logos/immersed-mark.svg": "c960c7fddf6b541d5ab1d3c5966972fc212d601fe85c572c94080659fe3ba143",
     "logos/listen-mark.svg": "bbc836a06745c73c1131c154baf0ae5f40282136cbc0b9bc9acc14292c87f12c",
     "logos/read-mark.svg": "4244d0373967d125c6e0e0babf0fd063a32586789eac815554c587d38d07040e",
-    "tokens.css": "9ca4108bbad69a3ac3290904ee544067c9825083c74391e89abc6371f01441c8",
-    "tokens.json": "d75b139e1ef9c2c7b0c02bfc9b5342702636b365f44dfb2e5b482caf888d1913",
-    "tokens.ts": "98ddb4021f7c26db043348d23a706f18053916efff74535fc12cdb7b945d3bf4"
+    "tokens.css": "9c5e366142df8fb4144f18908af4a6fa7c7a387d70885c2cf277a285e15af168",
+    "tokens.json": "1e81d5a777c735979a73df653ca776161b1dad7917208b7defdf16928f9dc47f",
+    "tokens.ts": "70bc41bf58971517b9904468b0bdc962156e989e6c7f0603bc09d41b762b0d69"
   }
 }

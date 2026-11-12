@@ -25,4 +25,10 @@ if target.exists():
     shutil.rmtree(target)
 shutil.copytree(kit, target)
 (target / 'source.json').write_text(json.dumps(manifest, indent=2) + '\n')
+# Runtime exports are included in the same update PR as the snapshot.
+exports = {'listen_app/static/css/dot-tokens.css': 'tokens.css'}
+for destination, name in exports.items():
+    output = repo / destination
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(kit / name, output)
 print('Updated dot. kit to ' + sha)

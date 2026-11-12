@@ -1,0 +1,12 @@
+[
+ {
+  "scope": "app",
+  "theme": "existing dot. identity",
+  "prompt": "Apply dot. branding while keeping each app identity",
+  "signature": "shared suite signature and semantic tokens",
+  "entry": "refinement",
+  "waived": [],
+  "date": "2026-11-12",
+  "mode": "build"
+ }
+]

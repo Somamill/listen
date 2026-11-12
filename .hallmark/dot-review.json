@@ -1,0 +1,19 @@
+{
+  "scope": "existing app screens",
+  "mode": "subagent finish review",
+  "findings": [
+    {
+      "app": "read",
+      "issue": "Grid/list segments exceeded their container",
+      "resolution": "44px container with centered 36px segments",
+      "status": "resolved"
+    },
+    {
+      "app": "listen",
+      "issue": "Folder chooser text remained 10px",
+      "resolution": "13px Settings button minimum with 40px controls",
+      "status": "resolved"
+    }
+  ],
+  "nativeLimit": "Native iOS appearance was not verified on a device; read. web preview is blocked by its existing SQLite WASM resolution issue."
+}
