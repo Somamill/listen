@@ -27,3 +27,5 @@ The exported CSS and TypeScript map to the JSON source. Swift consumers can load
 ## Runtime roles
 
 Light accents use white foreground text; dark accents use the dark background foreground. Use `colors.accentsDark` in dark appearance rather than reusing light accents. Preserve read. OLED black when explicitly selected; keep listen.’s glass material restrained and Immersed’s player black. Shared identity belongs in chrome and Settings/About, away from reading and video content.
+
+Pressed controls remain opaque so small text keeps its contrast. Use a border or restrained position change for feedback, rather than fading the entire control.
