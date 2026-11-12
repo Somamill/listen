@@ -1,0 +1,28 @@
+{
+  "npm": {
+    "impeccable": "4.8.2",
+    "hyperframes": "0.9.38",
+    "puppeteer-core": "25.17.0"
+  },
+  "skills": [
+    {
+      "repository": "Nutlope/hallmark",
+      "ref": "04977e15f3dfd6ee4b74c887dac3eb52665d6c92",
+      "paths": [
+        "skills/hallmark"
+      ]
+    },
+    {
+      "repository": "heygen-com/hyperframes",
+      "ref": "v0.9.38",
+      "paths": [
+        "skills/hyperframes",
+        "skills/hyperframes-cli",
+        "skills/hyperframes-registry",
+        "skills/media-use",
+        "skills/reverse-any-video",
+        "skills/style-sampling"
+      ]
+    }
+  ]
+}
