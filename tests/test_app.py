@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch,Mock
 
+os.environ['LISTEN_DISABLE_TRANSFER_MONITOR']='1'
 TEMP=tempfile.TemporaryDirectory();os.environ['LISTEN_DATA_DIR']=TEMP.name
 from listen_app import settings,catalog,clients
 from listen_app.server import create_app
@@ -12,7 +13,7 @@ from bs4 import BeautifulSoup
 
 class ListenTests(unittest.TestCase):
     def setUp(self):
-        for name in ['settings.json','goodreads-library.json','goodreads-sync-state.json','listening-progress.json']:(Path(TEMP.name)/name).unlink(missing_ok=True)
+        for name in ['settings.json','goodreads-library.json','goodreads-sync-state.json','listening-progress.json','library-transfers.json']:(Path(TEMP.name)/name).unlink(missing_ok=True)
         self.app=create_app();self.app.config['BOUND_PORT']=58432;self.client=self.app.test_client();self.base='http://127.0.0.1:58432'
         self.headers={'X-Listen-Token':self.app.config['SERVICE_TOKEN'],'Origin':self.base,'Referer':self.base+'/discover'}
         self.cfg=copy.deepcopy(settings.DEFAULTS);self.cfg['client']['type']='qbittorrent';self.cfg['downloads_folder']=TEMP.name;self.cfg['completed_folder']=TEMP.name
@@ -257,11 +258,39 @@ class ListenTests(unittest.TestCase):
         cfg=copy.deepcopy(self.cfg)
         target=Path(TEMP.name)/'manual-library';target.mkdir(exist_ok=True);cfg['completed_folder']=str(target)
         row={'id':'hash','name':'Book','progress':1,'save_path':str(Path(TEMP.name)/'local'),'content_path':str(Path(TEMP.name)/'local/Book')}
+        Path(row['content_path']).mkdir(parents=True,exist_ok=True)
+        (Path(row['content_path'])/'book.m4b').write_bytes(b'complete')
         with patch.object(clients,'torrents',return_value=[row]),patch.object(clients,'_connect') as connect:
             result=clients.move_completed('hash',cfg)
             self.assertTrue(result['moving']);connect.return_value.torrents_set_location.assert_called_once_with(location=str(target),torrent_hashes='hash')
         row['progress']=.5
         with patch.object(clients,'torrents',return_value=[row]),self.assertRaises(clients.ClientError):clients.move_completed('hash',cfg)
+    def test_transfer_cleanup_verifies_files_and_preserves_library(self):
+        import shutil
+        from listen_app import transfers
+        base=Path(TEMP.name)/'verification';source=base/'local'/'Book';target=base/'library'/'Book'
+        source.mkdir(parents=True,exist_ok=True);target.parent.mkdir(exist_ok=True)
+        (source/'audio.m4b').write_bytes(b'complete recording');(source/'cover.jpg').write_bytes(b'art')
+        cfg=copy.deepcopy(self.cfg);cfg['completed_folder']=str(target.parent)
+        transfers.record('verified',cfg,source,target)
+        row={'id':'verified','progress':1,'state':'stoppedUP','save_path':str(target.parent)}
+        with patch.object(clients,'torrents',return_value=[row]),patch.object(clients,'_connect') as connect:
+            transfers.finish_pending(cfg);connect.assert_not_called()
+            target.mkdir();(target/'audio.m4b').write_bytes(b'complete recording')
+            transfers.finish_pending(cfg);connect.assert_not_called()
+            shutil.rmtree(target);shutil.move(str(source),str(target))
+            (target/'cover.jpg').write_bytes(b'wrong size')
+            transfers.finish_pending(cfg);connect.assert_not_called()
+            (target/'cover.jpg').write_bytes(b'art');transfers.finish_pending(cfg)
+            connect.return_value.torrents_delete.assert_called_once_with(torrent_hashes='verified',delete_files=False)
+        self.assertFalse(source.exists());self.assertTrue((target/'audio.m4b').exists());self.assertNotIn('verified',transfers.pending())
+
+    def test_preferred_editions_keep_other_books_and_languages(self):
+        def book(title,fmt,language='English',**more):return dict(title=title,format=fmt,language=language,**more)
+        books=[book('Blink - Malcolm Gladwell [MP3]','MP3'),book('Blink – Malcolm Gladwell [M4B]','M4B',cover='cover'),book('Blink - Malcolm Gladwell','M4B','German'),book('Blink - Another Author','M4B'),book('Blink 2 - Malcolm Gladwell','M4B')]
+        result=catalog.preferred_editions(books)
+        self.assertEqual(len(result),4);self.assertEqual(result[0]['format'],'M4B');self.assertEqual(result[0]['cover'],'cover')
+
     def test_local_orphan_transfer_and_collision_safety(self):
         from listen_app import library
         local=Path(TEMP.name)/'local';cloud=Path(TEMP.name)/'cloud';local.mkdir(exist_ok=True);cloud.mkdir(exist_ok=True)
@@ -279,7 +308,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.3.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.4.0');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

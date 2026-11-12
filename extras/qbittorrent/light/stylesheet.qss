@@ -1,0 +1,25 @@
+/* listen. — original Qt desktop theme. Native title bars remain native. */
+QWidget { background-color: #f3f3eb; color: #24392e; font-size: 13px; }
+QMainWindow, QDialog { background-color: #f3f3eb; }
+QTreeView, QListView, QTableView, QTextEdit, QPlainTextEdit { background-color: #ffffff; alternate-background-color: #f3f3eb; border: 1px solid #d6ddd2; border-radius: 9px; selection-background-color: #dce7d8; selection-color: #24392e; outline: none; }
+QTreeView::item, QListView::item, QTableView::item { padding: 4px 3px; }
+QHeaderView::section { background: #f3f3eb; color: #24392e; padding: 7px; border: none; border-bottom: 1px solid #d6ddd2; }
+QPushButton { background: #ffffff; border: 1px solid #d6ddd2; border-radius: 9px; padding: 6px 12px; }
+QPushButton:hover, QToolButton:hover { background: #dce7d8; }
+QPushButton:default { border: 1px solid #52745e; }
+QPushButton:disabled, QLabel:disabled { color: #849082; }
+QToolBar { spacing: 5px; padding: 5px; border: none; border-bottom: 1px solid #d6ddd2; }
+QToolButton { border: none; border-radius: 7px; padding: 5px; }
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox { background: #ffffff; border: 1px solid #d6ddd2; border-radius: 7px; padding: 5px; selection-background-color: #dce7d8; }
+QTabWidget::pane { border: 1px solid #d6ddd2; border-radius: 8px; }
+QTabBar::tab { padding: 7px 13px; border-radius: 7px; margin: 3px; }
+QTabBar::tab:selected { background: #dce7d8; }
+QGroupBox { border: 1px solid #d6ddd2; border-radius: 9px; margin-top: 12px; padding-top: 12px; }
+QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }
+QProgressBar { border: none; background: #dce7d8; border-radius: 5px; text-align: center; color: #24392e; }
+QProgressBar::chunk { background: #52745e; border-radius: 5px; }
+QMenu { background: #ffffff; border: 1px solid #d6ddd2; padding: 5px; }
+QMenu::item { padding: 5px 20px; border-radius: 5px; }
+QMenu::item:selected { background: #dce7d8; }
+QStatusBar { border-top: 1px solid #d6ddd2; }
+QToolTip { background: #ffffff; color: #24392e; border: 1px solid #d6ddd2; padding: 6px; }

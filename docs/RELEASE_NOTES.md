@@ -1,3 +1,10 @@
+## listen. 0.4.0 · library cleanup and preferred editions
+
+- Send to library now verifies local client moves before removing the torrent, preserving the library files and removing empty local download folders. Pending cleanup survives app restarts. Seeding stops after successful transfer; failed verification retains the torrent. Remote clients retain torrents because their files cannot be verified locally.
+- Search presents one preferred edition per matching title/author and language, favoring unabridged releases, M4B, then lossless and other known audio formats, with richer metadata breaking ties. Different languages, authors, and series numbers stay separate. Catalog naming differences can still prevent a match; metadata ranking does not certify audio fidelity or torrent health.
+- Original light and dark qBittorrent desktop themes complement listen. Editable sources and install instructions are in `extras/qbittorrent`. Theme choice and light/dark switching are manual; native window chrome remains native.
+- Existing client privacy settings and Goodreads session are preserved. This remains an ad-hoc signed, unnotarized beta.
+
 ## listen. 0.3.1 · release-readiness beta
 
 A portable audiobook discovery app for macOS 13+, with separate Apple Silicon and Intel downloads.

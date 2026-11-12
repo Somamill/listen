@@ -1,22 +1,24 @@
-# listen. 0.3.1 release-readiness check
+# listen. 0.4.0 release-readiness check
 
-Checked 9 November 2026. This is a tested **public beta**, with the distribution and external-service limits below.
+Checked 12 November 2026. This is a tested **public beta**, with the distribution and external-service limits below.
 
 ## Validation
 
 | Area | Result and evidence |
 | --- | --- |
-| Application tests | 36 tests covering local authentication, Host/origin checks, malformed requests, metadata filtering, reading shelves, imports, client adapters, startup, add-result handling, and local transfer safeguards. |
+| Application tests | 38 tests covering local authentication, Host/origin checks, malformed requests, metadata filtering, reading shelves, imports, client adapters, startup, add-result handling, and local transfer safeguards, partial-move cleanup prevention, library file preservation, and preferred-edition grouping. |
 | Frontend | Five rendered pages and 20 inline scripts pass Node.js syntax checks, along with the standalone browser script. Swift shell type-checks. |
 | Clean installation | The frozen service is started with a new data directory before packaging. All five pages open, private connection-file permissions and authentication are checked, and neutral preferences are asserted. No existing Mac configuration is required. |
 | Architecture packages | Release CI builds Apple Silicon and Intel independently, runs tests and frontend checks, verifies the actual frozen-service startup contract, signs/verifies the bundle ad hoc, and creates ZIP/DMG files and SHA-256 manifests. Publishing depends on both builds passing. |
 | Catalog | Live mixed-case public-domain title searches return editions. HTTPS redirects are restricted to approved hosts and may not silently discard a search. |
 | Goodreads | A real authenticated session refreshed shelves and survived restarting the app. Reading shelves are separated and unchanged refreshes avoid resetting the current view. No account data is included in this report or the packages. |
 | qBittorrent | Live API checks with macOS qBittorrent 5.2.3. Automatic startup and both legacy and structured add results are covered. Existing torrent privacy preferences are retained. |
-| Library transfer | A stopped, private synthetic torrent with no trackers was added, moved through the real library-transfer API, and removed. The synthetic fixture contained no audiobook content; cleanup targeted only its unique hash and file. |
+| Library transfer | A stopped, private synthetic torrent with no trackers was added, moved through the real library-transfer API, and removed. listen. automatically removed the synthetic torrent after the move, the local source was absent, and the destination bytes were preserved. The fixture contained no audiobook content; final test cleanup targeted only its unique hash and file. |
 | Dependencies | The checked environment contained 59 audited packages with no known advisories reported. Release dependency versions and CI action revisions are pinned. This is not a guarantee against future advisories or malicious code. |
 | Portable preferences | New installs use default-app magnet handoff, unrestricted languages/categories, a per-user downloads path, and no configured library folder. Existing direct-client and library preferences are preserved. No personal profile, proxy endpoint, credentials, reading history, or personal folder is embedded. |
 | Cleanup | Removed obsolete public-feed and automatic Safari connection experiments, unreachable connection UI, unused endpoints/imports, and stale sign-in messages. Manual browser/CSV imports and opt-in read-only diagnostics remain useful supported features. |
+
+The light and dark Qt theme resources were validated; the dark theme was applied and visually checked in qBittorrent. All existing torrents and checked privacy/network preferences survived the restart.
 
 ## What another user needs
 

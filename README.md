@@ -25,7 +25,7 @@
 - **Start without API setup:** new installs send magnet links to the Mac’s default torrent app.
 - **Use your torrent client:** optional direct integrations for qBittorrent, Transmission, and Deluge Web; magnet-link handoff for other compatible clients.
 - **See actual torrent health** from available client metrics. Search previews show “Health unknown” until the client connects.
-- **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. With a direct local connection, downloads finish locally first. In magnet handoff mode, the client controls locations and progress. Use **Send to library** to move completed items when you choose; managed torrents move through the client so seeding can continue.
+- **Choose where books belong:** local folders, a remote client’s destination, or a cloud-drive folder. With a direct local connection, downloads finish locally first. In magnet handoff mode, the client controls locations and progress. Use **Send to library** to move completed items when you choose; local managed torrents are removed after the client moves their files and listen. verifies the destination. Library files stay; empty local download folders are removed and seeding stops. Pending verification resumes on launch. Remote clients retain torrents.
 - **Make it yours:** light glass, dark glass, or system appearance, with a native Mac window, directory picker, keyboard shortcuts, optional Touch ID / Mac-password window lock, and a manual official-release update check.
 - **Keep your setup local:** client passwords use the system credential store. Settings and reading progress stay on your machine; no hosted listen. account or analytics service.
 
@@ -93,3 +93,7 @@ The native download is for macOS 13+. Windows and Linux do not have native relea
 ## Credits & license
 
 MIT licensed. Catalog parsing was adapted from [JamesRy96/audiobookbay-automated](https://github.com/JamesRy96/audiobookbay-automated); the original copyright and permission notice are preserved. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+### Matching qBittorrent desktop themes
+
+Cream/sage and forest themes are available in [extras/qbittorrent](extras/qbittorrent), with editable sources and installation instructions. Theme selection is manual and does not change privacy or network settings.

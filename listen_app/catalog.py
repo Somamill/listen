@@ -82,6 +82,30 @@ def fetch(url,cfg=None):
         raise CatalogError('The catalog redirected too many times. Please try again later.')
     except requests.RequestException as exc:raise CatalogError('The catalog returned an unexpected response. Please try again shortly.') from exc
 
+def edition_key(book):
+    # Keep language, author, subtitles, and series numbers in the identity.
+    # Strip only explicit release/codec annotations, never arbitrary brackets.
+    title=book['title'].casefold()
+    title=re.sub(r'\b(?:unabridged|abridged|m4b|m4a|mp3|flac|aac|opus|\d{2,3}\s*kbps)\b',' ',title)
+    title=re.sub(r'[\[({]\s*(?:retail|chapteri[sz]ed|repack|audiobook|\d{4})\s*[\])}]',' ',title)
+    return (' '.join(re.findall(r'\w+',title)),book.get('language','Unknown').casefold())
+
+def edition_quality(book):
+    text=book['title'].casefold()
+    fmt=book.get('format','').casefold()
+    # M4B is convenient for audiobook players. Lossless follows, then MP3.
+    rank=max((score for name,score in [('m4b',5),('flac',4),('m4a',3),('mp3',2),('opus',2),('aac',2)] if name in fmt),default=0)
+    metadata=sum(bool(book.get(k)) and book[k] not in ('Unknown','Not listed') for k in ('cover','language','category','format','file_size','bitrate'))
+    completeness=0 if re.search(r'(?<!un)abridged',text) else 2 if 'unabridged' in text else 1
+    return completeness,rank,metadata
+
+def preferred_editions(books):
+    chosen={}
+    for book in books:
+        key=edition_key(book)
+        if key not in chosen or edition_quality(book)>edition_quality(chosen[key]):chosen[key]=book
+    return list(chosen.values())
+
 def search(query,cfg=None):
     cfg=cfg or settings.load();results=[];seen=set()
     # The provider matches common subtitle/series words too broadly. Keep the main title.
@@ -109,6 +133,7 @@ def search(query,cfg=None):
                 m=re.search(label+r':\s*([^\s]+(?:\s*(?:kbps|GB|MB|KB))?)',text,re.I)
                 return m.group(1)[:40] if m else 'Not listed'
             results.append(dict(cover=image_from(post.select_one('.postContent img, .postContent p img, img')),title=a.get_text(' ',strip=True),link=link,language=meta['language'],category=meta['category'],format=field('Format'),file_size=field('File Size'),bitrate=field('Bitrate'),health={'kind':'unknown','label':'Health unknown','detail':'Live peer health is available only after the client connects. No tracker is contacted by this preview.'}))
+    results=preferred_editions(results)
     normalize=lambda text:' '.join(re.findall(r'\w+',text.casefold()))
     wanted=normalize(query);core=normalize(primary)
     significant=set(wanted.split())-{'the','a','an','of','and','in','to','for','der','die','das','und','von'}

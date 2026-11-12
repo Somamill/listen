@@ -1,0 +1,21 @@
+{
+  "colors": {
+    "Palette.Window": "#14251f",
+    "Palette.WindowText": "#e6eadd",
+    "Palette.Base": "#1d3028",
+    "Palette.AlternateBase": "#14251f",
+    "Palette.Text": "#e6eadd",
+    "Palette.Button": "#1d3028",
+    "Palette.ButtonText": "#e6eadd",
+    "Palette.Highlight": "#365543",
+    "Palette.HighlightedText": "#e6eadd",
+    "Palette.Link": "#adc4a3",
+    "Palette.ToolTipBase": "#1d3028",
+    "Palette.ToolTipText": "#e6eadd",
+    "TransferList.Downloading": "#adc4a3",
+    "TransferList.Uploading": "#adc4a3",
+    "TransferList.Error": "#d86c59",
+    "TransferList.MissingFiles": "#d86c59",
+    "TransferList.Moving": "#c39154"
+  }
+}

@@ -37,9 +37,9 @@ CSV import, manual Safari-page import, and browser bookmarklet/pasted book links
 
 With a direct client connection, choose a downloads folder and a separate library folder in Settings. Local downloads finish locally first; incomplete files may be staged locally by qBittorrent or Deluge. Nothing is sent to iCloud automatically.
 
-Use **Send to library** on a completed download, or **Local library** for finished files that the connected local client no longer manages. Managed torrents move through the client so it can keep track for seeding. Existing destination names are checked before local moves; cloud synchronization is handled by macOS. Remote file operations and collisions are managed by the remote client.
+Use **Send to library** on a completed download, or **Local library** for finished files that the connected local client no longer manages. For local direct clients, managed torrents move through the client. Once every file is confirmed at the destination with its original size and absent from its old location, listen. removes the torrent without deleting library files, and removes empty local download folders. Seeding stops. Keep listen. open; pending verification resumes on the next launch. If verification fails, the torrent stays. Remote clients retain their torrents because their files cannot be checked on this Mac. Existing destination names are checked before local moves; cloud synchronization is handled by macOS. Remote file operations and collisions are managed by the remote client.
 
-In default-app handoff mode, the torrent app controls all locations, progress, and file moves. Connect its Web/RPC interface to manage those in listen. Keep cloud files downloaded if you continue seeding them.
+In default-app handoff mode, the torrent app controls all locations, progress, and file moves. Connect its Web/RPC interface to manage those in listen. Cloud upload completion is managed by macOS and is separate from local move verification.
 
 ## Updates and appearance
 

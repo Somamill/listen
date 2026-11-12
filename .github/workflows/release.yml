@@ -52,4 +52,4 @@ jobs:
       - name: Publish public beta
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --prerelease --title "listen. ${GITHUB_REF_NAME} · public beta" --notes-file docs/RELEASE_NOTES.md
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* extras/qbittorrent/*.qbtheme --verify-tag --prerelease --title "listen. ${GITHUB_REF_NAME} · public beta" --notes-file docs/RELEASE_NOTES.md

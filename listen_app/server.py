@@ -17,6 +17,9 @@ def create_app():
         with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(32))
     token=token_file.read_text().strip()
     app.config['SERVICE_TOKEN']=token;app.config['BOUND_PORT']=0
+    from .transfers import monitor
+    if not os.environ.get('LISTEN_DISABLE_TRANSFER_MONITOR'):
+        threading.Thread(target=monitor,daemon=True).start()
     from .covers import covers
     app.register_blueprint(covers)
     csrf=hmac.new(token.encode(),b'listen.form.csrf',hashlib.sha256).hexdigest()

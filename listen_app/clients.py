@@ -172,13 +172,20 @@ def move_completed(torrent_id,config=None):
     if is_local(cfg):
         root=Path(folder)
         if not root.is_dir():raise ClientError('Your library folder is unavailable. Check Settings or your cloud drive.')
-        target=root/Path(t.get('content_path') or t['name']).name
+        source=Path(t.get('content_path') or Path(t['save_path'])/t['name'])
+        if source.resolve()==root.resolve() or source.resolve() in root.resolve().parents:
+            raise ClientError('Choose a library folder outside this download.')
+        target=root/source.name
         if target.exists():raise ClientError('An item with this name already exists in your library. Nothing was overwritten.')
+    if is_local(cfg):
+        from . import transfers
+        try:transfers.record(torrent_id,cfg,source,target)
+        except (ValueError,OSError) as exc:raise ClientError(str(exc)) from exc
     try:
         c=_connect(cfg);kind=cfg['client']['type']
         if kind=='qbittorrent':c.torrents_set_location(location=folder,torrent_hashes=str(torrent_id))
         elif kind=='transmission':c.move_torrent_data(ids=[int(torrent_id)],location=folder,move=True)
         else:c.execute_call({'method':'core.move_storage','params':[[str(torrent_id)],folder]})
-        return {'message':'Move requested in '+kind+'. The client will keep track of the new location. Refresh to check completion.','moving':True}
+        return {'message':('Moving to your library. After every file is verified there, listen. removes the torrent and empty local folder. Keep listen. open; pending cleanup resumes on restart.' if is_local(cfg) else 'Move requested. Remote files cannot be verified on this Mac, so the torrent is retained.'),'moving':True}
     except ClientError:raise
-    except Exception as exc:raise ClientError('The torrent client could not move this item. Its files were not moved by listen.') from exc
+    except Exception as exc:raise ClientError('The move could not be confirmed. The torrent is retained; check its location before retrying.') from exc
