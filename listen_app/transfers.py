@@ -10,7 +10,7 @@ def manifest(source):
     source=Path(source)
     files=[source] if source.is_file() else list(source.rglob('*'))
     if source.is_symlink() or any(p.is_symlink() for p in files):raise ValueError('Symbolic links cannot be transferred automatically.')
-    result={('.' if p==source else str(p.relative_to(source))):p.stat().st_size for p in files if p.is_file()}
+    result={('.' if p==source else str(p.relative_to(source))):p.stat().st_size for p in files if p.is_file() and p.name!='.DS_Store'}
     if not result:raise ValueError('No completed files were found.')
     return result
 
@@ -50,6 +50,8 @@ def finish_pending(cfg=None):
         # Only empty leftover directories may be removed; unexpected files stay.
         if source.is_dir():
             for p in sorted(source.rglob('*'),key=lambda p:len(p.parts),reverse=True):
+                if p.name=='.DS_Store' and p.is_file() and not p.is_symlink():
+                    p.unlink() # Finder metadata only, after the media move is verified.
                 if p.is_dir() and not p.is_symlink():
                     try:p.rmdir()
                     except OSError:pass

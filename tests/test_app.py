@@ -270,7 +270,7 @@ class ListenTests(unittest.TestCase):
         from listen_app import transfers
         base=Path(TEMP.name)/'verification';source=base/'local'/'Book';target=base/'library'/'Book'
         source.mkdir(parents=True,exist_ok=True);target.parent.mkdir(exist_ok=True)
-        (source/'audio.m4b').write_bytes(b'complete recording');(source/'cover.jpg').write_bytes(b'art')
+        (source/'audio.m4b').write_bytes(b'complete recording');(source/'cover.jpg').write_bytes(b'art');(source/'.DS_Store').write_bytes(b'Finder metadata')
         cfg=copy.deepcopy(self.cfg);cfg['completed_folder']=str(target.parent)
         transfers.record('verified',cfg,source,target)
         row={'id':'verified','progress':1,'state':'stoppedUP','save_path':str(target.parent)}
@@ -278,7 +278,8 @@ class ListenTests(unittest.TestCase):
             transfers.finish_pending(cfg);connect.assert_not_called()
             target.mkdir();(target/'audio.m4b').write_bytes(b'complete recording')
             transfers.finish_pending(cfg);connect.assert_not_called()
-            shutil.rmtree(target);shutil.move(str(source),str(target))
+            shutil.rmtree(target);target.mkdir()
+            shutil.move(str(source/'audio.m4b'),str(target/'audio.m4b'));shutil.move(str(source/'cover.jpg'),str(target/'cover.jpg'))
             (target/'cover.jpg').write_bytes(b'wrong size')
             transfers.finish_pending(cfg);connect.assert_not_called()
             (target/'cover.jpg').write_bytes(b'art');transfers.finish_pending(cfg)
@@ -308,7 +309,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.4.0');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.4.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})

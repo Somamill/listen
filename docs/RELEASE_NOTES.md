@@ -1,3 +1,7 @@
+## listen. 0.4.1 · Finder metadata compatibility
+
+Includes the 0.4.0 improvements below. Finder’s `.DS_Store` metadata no longer prevents verified transfer cleanup; only that metadata and empty source directories are removed after media verification. Unexpected source files still prevent cleanup.
+
 ## listen. 0.4.0 · library cleanup and preferred editions
 
 - Send to library now verifies local client moves before removing the torrent, preserving the library files and removing empty local download folders. Pending cleanup survives app restarts. Seeding stops after successful transfer; failed verification retains the torrent. Remote clients retain torrents because their files cannot be verified locally.

@@ -1,4 +1,4 @@
-# listen. 0.4.0 release-readiness check
+# listen. 0.4.1 release-readiness check
 
 Checked 12 November 2026. This is a tested **public beta**, with the distribution and external-service limits below.
 
