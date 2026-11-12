@@ -47,7 +47,7 @@ html[data-dot-theme] .sidebar .dot-suite nav a { color: var(--dot-accent); margi
 html[data-dot-theme] .sidebar .dot-suite nav small { color: var(--dot-secondaryText); font-size: 12px; }
 @media (max-width: 700px) { html[data-dot-theme] .sidebar .dot-suite { margin: 0; } html[data-dot-theme] .sidebar .dot-suite nav { min-width: 200px; } }
 
-html[data-dot-theme] :where(button, a, summary):active { opacity: .78; }
+html[data-dot-theme] :where(button, a, summary):active { opacity: var(--dot-pressed-opacity); }
 html[data-dot-theme] :where(h1, h2, h3) { text-wrap: balance; }
 html[data-dot-theme] body input:not([type="checkbox"]):not([type="radio"]), html[data-dot-theme] body select, html[data-dot-theme] body textarea { border: 1px solid var(--dot-secondaryText); }
 
@@ -77,3 +77,9 @@ html[data-dot-theme] body .settings-card p, html[data-dot-theme] body .settings-
 }
 html[data-dot-theme] body .settings-card label span, html[data-dot-theme] body .connection-control span, html[data-dot-theme] body .settings-save > span { font-size: 13px; }
 html[data-dot-theme] body .settings-card button { font-size: 13px; min-height: 40px; }
+
+/* Keep interaction colors in the app palette instead of inheriting legacy hover colors. */
+html[data-dot-theme] body .btn.primary:hover, html[data-dot-theme] body .primary:hover, html[data-dot-theme] body .play:hover { background: var(--dot-accent); color: var(--dot-on-accent); filter: brightness(.96); }
+
+html[data-dot-theme] body :where(button, a, summary):active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) { html[data-dot-theme] body :where(button, a, summary):active { transform: none; } }
