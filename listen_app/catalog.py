@@ -22,6 +22,7 @@ def metadata(post):
 def allowed(meta,cfg=None):
     cfg=cfg or settings.load();selected={s.casefold() for s in cfg['languages']}
     if selected:
+        selected.add(cfg.get('preferred_language','English').casefold())
         if not meta['languages'] and not cfg['include_unknown_language']:return False
         if any(l.casefold() not in selected for l in meta['languages']):return False
     exclusions=[e.casefold().strip() for e in cfg['excluded_categories']]
@@ -83,12 +84,15 @@ def fetch(url,cfg=None):
     except requests.RequestException as exc:raise CatalogError('The catalog returned an unexpected response. Please try again shortly.') from exc
 
 def edition_key(book):
-    # Keep language, author, subtitles, and series numbers in the identity.
+    # Keep author, subtitles, and series numbers in the identity; language is ranked separately.
     # Strip only explicit release/codec annotations, never arbitrary brackets.
     title=book['title'].casefold()
     title=re.sub(r'\b(?:unabridged|abridged|m4b|m4a|mp3|flac|aac|opus|\d{2,3}\s*kbps)\b',' ',title)
     title=re.sub(r'[\[({]\s*(?:retail|chapteri[sz]ed|repack|audiobook|\d{4})\s*[\])}]',' ',title)
-    return (' '.join(re.findall(r'\w+',title)),book.get('language','Unknown').casefold())
+    # Explicit language labels describe an edition, not a different book.
+    labels='|'.join(re.escape(label) for label in ALIASES)
+    title=re.sub(r'[\[({]\s*(?:'+labels+r')\s*[\])}]',' ',title)
+    return ' '.join(re.findall(r'\w+',title))
 
 def edition_quality(book):
     text=book['title'].casefold()
@@ -99,11 +103,15 @@ def edition_quality(book):
     completeness=0 if re.search(r'(?<!un)abridged',text) else 2 if 'unabridged' in text else 1
     return completeness,rank,metadata
 
-def preferred_editions(books):
+def preferred_editions(books,cfg=None):
+    cfg=cfg or settings.load();preferred=cfg.get('preferred_language','English').casefold()
+    def quality(book):
+        languages={ALIASES.get(v.strip().casefold(),v.strip()).casefold() for v in re.split(r'[,/&+;]|\band\b',book.get('language',''),flags=re.I)}
+        return (int(preferred in languages),*edition_quality(book))
     chosen={}
     for book in books:
         key=edition_key(book)
-        if key not in chosen or edition_quality(book)>edition_quality(chosen[key]):chosen[key]=book
+        if key not in chosen or quality(book)>quality(chosen[key]):chosen[key]=book
     return list(chosen.values())
 
 def search(query,cfg=None):
@@ -133,7 +141,7 @@ def search(query,cfg=None):
                 m=re.search(label+r':\s*([^\s]+(?:\s*(?:kbps|GB|MB|KB))?)',text,re.I)
                 return m.group(1)[:40] if m else 'Not listed'
             results.append(dict(cover=image_from(post.select_one('.postContent img, .postContent p img, img')),title=a.get_text(' ',strip=True),link=link,language=meta['language'],category=meta['category'],format=field('Format'),file_size=field('File Size'),bitrate=field('Bitrate'),health={'kind':'unknown','label':'Health unknown','detail':'Live peer health is available only after the client connects. No tracker is contacted by this preview.'}))
-    results=preferred_editions(results)
+    results=preferred_editions(results,cfg)
     normalize=lambda text:' '.join(re.findall(r'\w+',text.casefold()))
     wanted=normalize(query);core=normalize(primary)
     significant=set(wanted.split())-{'the','a','an','of','and','in','to','for','der','die','das','und','von'}

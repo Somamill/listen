@@ -94,6 +94,10 @@ The native download is for macOS 13+. Windows and Linux do not have native relea
 
 MIT licensed. Catalog parsing was adapted from [JamesRy96/audiobookbay-automated](https://github.com/JamesRy96/audiobookbay-automated); the original copyright and permission notice are preserved. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
+### One version per audiobook
+
+Choose your preferred language in Settings. listen. selects one version per matching book across languages, favoring your preferred language first, then completeness, format, and metadata. Allowed fallback languages apply when that language is unavailable.
+
 ### Matching qBittorrent desktop themes
 
 Cream/sage and forest themes are available in [extras/qbittorrent](extras/qbittorrent), with editable sources and installation instructions. Theme selection is manual and does not change privacy or network settings.

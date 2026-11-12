@@ -3,8 +3,9 @@ import copy,json,os,tempfile
 from pathlib import Path,PureWindowsPath
 from urllib.parse import urlparse
 
+LANGUAGES=('English','German','French','Spanish','Italian','Dutch','Portuguese','Russian','Japanese')
 DEFAULTS={
- 'theme':'system','languages':[], 'categories':[], 'excluded_categories':[], 'include_unknown_language':True,
+ 'theme':'system','preferred_language':'English','languages':[], 'categories':[], 'excluded_categories':[], 'include_unknown_language':True,
  'catalog_host':'audiobookbay.lu','search_pages':2,
  'client':{'type':'magnet','url':'http://127.0.0.1:8080','username':'','category':'listen'},
  'downloads_folder':'','completed_folder':'','stage_incomplete':True,
@@ -44,6 +45,7 @@ def validate(payload):
         if k in payload:cfg[k]=payload[k]
     if cfg['theme'] not in ('light','dark','system'):raise ValueError('Choose a supported theme.')
     if cfg['browser'] not in ('default','safari','chrome','firefox','edge','brave'):raise ValueError('Choose a supported browser.')
+    if cfg['preferred_language'] not in LANGUAGES:raise ValueError('Choose a supported preferred language.')
     for key in ('languages','categories','excluded_categories'):
         if not isinstance(cfg[key],list) or len(cfg[key])>100:raise ValueError('Invalid filters.')
         cfg[key]=list(dict.fromkeys(str(v).strip()[:80] for v in cfg[key] if str(v).strip()))

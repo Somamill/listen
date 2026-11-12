@@ -46,3 +46,7 @@ In default-app handoff mode, the torrent app controls all locations, progress, a
 In **Settings → About**, choose **Check for updates**. Open the linked official GitHub release, download the matching architecture, quit listen., and replace the app in Applications. Settings, reading history, Goodreads website session, and client downloads live outside the bundle and are retained. Updating listen. does not update your torrent client.
 
 Choose System, Light glass, or Dark glass. `⌘,` opens Settings. `⌃⌘L` hides the listen. windows behind a Mac-authentication lock; it does not lock other apps or encrypt files.
+
+### Choose one audiobook version
+
+In **Settings → Your discovery filters**, choose **Preferred audiobook language**. listen. shows one version per matching book, choosing that language first, then completeness, format, and metadata quality. **Allowed fallback languages** controls the alternatives when the preferred language is unavailable; selecting none allows every fallback language. The preferred language is always included. Category exclusions still apply. Differently named translations without shared catalog identifiers may not be recognized as the same book.

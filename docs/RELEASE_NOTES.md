@@ -1,3 +1,10 @@
+## listen. 0.4.2 · one version per audiobook
+
+- Settings now has a preferred audiobook language. Matching book titles/authors are grouped across languages, with one displayed version per book.
+- Selection favors the preferred language first, then completeness, audiobook format, and metadata richness. If the preferred language is unavailable, the best allowed alternative is selected automatically. Different authors and series volumes stay distinct; catalog naming differences can still prevent identification of the same book, particularly translated titles without shared identifiers.
+- The preferred language is always eligible; the existing language chips now control allowed fallback languages. Existing preferences migrate without resetting other settings; English is the initial preference and can be changed in Settings.
+- Library cleanup, torrent settings, and the matching qBittorrent themes are preserved.
+
 ## listen. 0.4.1 · Finder metadata compatibility
 
 Includes the 0.4.0 improvements below. Finder’s `.DS_Store` metadata no longer prevents verified transfer cleanup; only that metadata and empty source directories are removed after media verification. Unexpected source files still prevent cleanup.

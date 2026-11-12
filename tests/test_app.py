@@ -286,11 +286,31 @@ class ListenTests(unittest.TestCase):
             connect.return_value.torrents_delete.assert_called_once_with(torrent_hashes='verified',delete_files=False)
         self.assertFalse(source.exists());self.assertTrue((target/'audio.m4b').exists());self.assertNotIn('verified',transfers.pending())
 
-    def test_preferred_editions_keep_other_books_and_languages(self):
+    def test_preferred_editions_group_languages_but_keep_distinct_books(self):
         def book(title,fmt,language='English',**more):return dict(title=title,format=fmt,language=language,**more)
         books=[book('Blink - Malcolm Gladwell [MP3]','MP3'),book('Blink – Malcolm Gladwell [M4B]','M4B',cover='cover'),book('Blink - Malcolm Gladwell','M4B','German'),book('Blink - Another Author','M4B'),book('Blink 2 - Malcolm Gladwell','M4B')]
         result=catalog.preferred_editions(books)
-        self.assertEqual(len(result),4);self.assertEqual(result[0]['format'],'M4B');self.assertEqual(result[0]['cover'],'cover')
+        self.assertEqual(len(result),3);self.assertEqual(result[0]['format'],'M4B');self.assertEqual(result[0]['cover'],'cover')
+
+    def test_preferred_language_beats_format_and_uses_best_fallback(self):
+        def book(language,fmt,**more):return dict(title='A Book - An Author',language=language,format=fmt,**more)
+        cfg=copy.deepcopy(self.cfg);cfg['preferred_language']='German'
+        en=book('English','M4B',cover='cover');de=book('German','MP3');de_best=book('German','M4B',cover='cover')
+        self.assertEqual(catalog.preferred_editions([en,de],cfg),[de])
+        self.assertEqual(catalog.preferred_editions([en,de,de_best],cfg),[de_best])
+        self.assertEqual(catalog.preferred_editions([book('French','MP3'),en],cfg),[en])
+        rich=book('German','M4B',cover='cover',bitrate='128 kbps')
+        self.assertEqual(catalog.preferred_editions([de_best,rich],cfg),[rich])
+        tagged={**de_best,'title':'A Book - An Author [Deutsch]'}
+        self.assertEqual(len(catalog.preferred_editions([en,tagged],cfg)),1)
+
+    def test_preferred_language_settings_roundtrip_and_eligibility(self):
+        response=self.client.post('/api/settings',base_url=self.base,headers=self.headers,json={'preferred_language':'German','languages':['English']})
+        self.assertEqual(response.status_code,200);self.assertEqual(settings.load()['preferred_language'],'German')
+        meta={'languages':['German'],'labels':[],'category':''}
+        self.assertTrue(catalog.allowed(meta,settings.load()))
+        self.assertEqual(self.client.post('/api/settings',base_url=self.base,headers=self.headers,json={'preferred_language':'Invalid'}).status_code,400)
+        self.assertEqual(settings.load()['preferred_language'],'German')
 
     def test_local_orphan_transfer_and_collision_safety(self):
         from listen_app import library
@@ -309,7 +329,7 @@ class ListenTests(unittest.TestCase):
     def test_update_check_uses_official_releases(self):
         response=Mock();response.json.return_value=[{'tag_name':'v1.0.0','html_url':'https://github.com/Somamill/listen/releases/tag/v1.0.0','draft':False,'prerelease':False}]
         with patch('requests.get',return_value=response) as fetch:
-            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.4.1');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
+            result=self.get('/api/update');self.assertTrue(result.json['available']);self.assertEqual(result.json['current'],'0.4.2');self.assertEqual(fetch.call_args.args[0],'https://api.github.com/repos/Somamill/listen/releases')
     def test_bookmarklet_link_never_downloads_automatically(self):
         with patch.object(clients,'add') as add:
             r=self.post('/goodreads/link',{'url':'https://www.goodreads.com/book/show/123','title':'Example','author':'Author'})
