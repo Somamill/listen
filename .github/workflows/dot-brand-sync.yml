@@ -1,0 +1,65 @@
+name: Sync dot. brand kit
+on:
+  schedule:
+    - cron: '27 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: dot-brand-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Somamill/dot-brand-kit
+          ref: main
+          path: .dot-source
+          persist-credentials: false
+      - name: Copy and validate brand snapshot
+        run: |
+          python3 scripts/sync-dot-brand.py .dot-source
+          python3 branding/dot/check.py
+          rm -rf .dot-source
+      - name: Open update proposal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add branding/dot
+          if git diff --cached --quiet; then
+            echo 'Brand snapshot is current.'
+            exit 0
+          fi
+          sha=$(python3 -c 'import json; print(json.load(open("branding/dot/source.json"))["commit"])')
+          branch="dot/brand-${sha}"
+          if [[ -n "$(gh pr list --state all --head "$branch" --json number --jq '.[].number')" ]]; then
+            echo 'This revision already has a proposal.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Reuse an existing branch only when its previous push was interrupted before PR creation.
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            git reset --hard HEAD
+            git fetch origin "$branch"
+            git checkout -b "$branch" FETCH_HEAD
+          else
+            git checkout -b "$branch"
+            git commit -m 'chore: update dot. brand kit'
+            git push origin "$branch"
+          fi
+          cat > "$RUNNER_TEMP/dot-pr.md" <<EOF
+          Updates the vendored dot. kit to https://github.com/Somamill/dot-brand-kit/commit/$sha.
+
+          Includes shared tokens, vector marks, identity/copy guidance and release conventions. App screens adopt these assets separately.
+
+          Validation: shared brand validator passed in this sync run. GitHub suppresses PR-triggered workflows for GITHUB_TOKEN-created PRs; run the app checks or push a human-authored commit before merging. No automatic merge or app release.
+          EOF
+          gh pr create --base main --head "$branch" --title 'chore: update dot. brand kit' --body-file "$RUNNER_TEMP/dot-pr.md"

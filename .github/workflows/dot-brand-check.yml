@@ -1,0 +1,27 @@
+name: dot. brand check
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  brand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Validate shared brand assets
+        run: python3 branding/dot/check.py
+      - name: Verify snapshot checksums
+        run: |
+          python3 - <<'PYCODE'
+          import hashlib, json, pathlib
+          root = pathlib.Path('branding/dot')
+          manifest = json.loads((root / 'source.json').read_text())
+          assert manifest['repository'] == 'Somamill/dot-brand-kit'
+          assert len(manifest['commit']) == 40
+          for name, digest in manifest['files'].items():
+              path = root / name
+              assert path.resolve().is_relative_to(root.resolve())
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, name
+          PYCODE
