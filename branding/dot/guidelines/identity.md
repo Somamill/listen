@@ -23,3 +23,7 @@ Prefer SF Symbols in native Apple surfaces and the existing icon library elsewhe
 ## Adoption
 
 The exported CSS and TypeScript map to the JSON source. Swift consumers can load the JSON as a bundled resource and map semantic roles to native Color/font/spacing APIs. Adopt tokens component by component; importing this kit alone does not restyle an app.
+
+## Runtime roles
+
+Light accents use white foreground text; dark accents use the dark background foreground. Use `colors.accentsDark` in dark appearance rather than reusing light accents. Preserve read. OLED black when explicitly selected; keep listen.’s glass material restrained and Immersed’s player black. Shared identity belongs in chrome and Settings/About, away from reading and video content.

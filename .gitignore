@@ -17,3 +17,7 @@ listening-progress.json
 *.log
 *.dmg
 *.zip
+
+# Local design-audit captures
+.hallmark/shots/
+.hallmark/before/
