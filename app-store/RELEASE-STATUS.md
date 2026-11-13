@@ -7,6 +7,10 @@ The Mac App Store edition is a sandboxed, self-contained native player. The sepa
 ## Verified
 
 - Both current-source unsigned Release archives build successfully.
+- Sixteen core simulator tests pass; four iPhone and four iPad UI flows pass. The Keychain-token replacement test was explicitly excluded to honor the request to avoid keychain password prompts.
+- GitHub native CI passes for iOS simulator and Mac Catalyst: https://github.com/Somamill/listen/actions/runs/43521177440. Python tests, dependency audit and brand checks also pass.
+- Native source and Store preparation are published on `main` through PRs #4 and #5.
+- The public policy at https://github.com/Somamill/listen/blob/main/app-store/PRIVACY.md is saved in App Store Connect.
 - Both packages pass checks for sample checksum, main executable, widget/share executables, matching version/build numbers, identifiers and privacy manifest.
 - Main, widget and share identifiers are registered; the App Group is assigned to all three and the iCloud container to the main app.
 - A website-generated iOS main profile includes the required iCloud permissions. API-generated main profiles still omit those permissions and must not be used.

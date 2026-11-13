@@ -98,6 +98,6 @@ MIT licensed. Catalog parsing was adapted from [JamesRy96/audiobookbay-automated
 
 Cream/sage and forest themes are available in [extras/qbittorrent](extras/qbittorrent), with editable sources and installation instructions. Theme selection is manual and does not change privacy or network settings.
 
-## iPhone & iPad developer preview
+## Native iPhone, iPad & Mac player
 
-A separate native audiobook player is being prepared in [ios/](ios/README.md), with local/Files/ZIP imports, playback controls, Goodreads shelves, automatic metadata, AAC/M4B conversion, iCloud library/progress sync code, media-server downloads, browser transfers, and widget/share extensions. It contains no torrent features. See the setup guide and feature matrix for verified behavior and pending signed-device/App Store work. This preview does not replace the macOS app.
+A separate native audiobook player is available as source in [ios/](ios/README.md), with local/Files/ZIP imports, playback controls, Goodreads shelves, automatic metadata, AAC/M4B conversion, iCloud library/progress sync code, media-server downloads, browser transfers, and widget/share extensions. It contains no torrent features. See the setup guide and feature matrix for verified behavior and pending signed-device/App Store work. The sandboxed Mac Catalyst edition builds as **listen Player.app**, alongside the existing desktop app. Version 1.0.0 (3) passes unsigned iOS/Mac archive checks and simulator tests. App Store signing and submission are still pending; no Store binary is available yet. See [release status](app-store/RELEASE-STATUS.md) and the [Store privacy policy](app-store/PRIVACY.md).
