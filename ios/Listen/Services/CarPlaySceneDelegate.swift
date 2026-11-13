@@ -1,3 +1,4 @@
+#if !targetEnvironment(macCatalyst)
 import CarPlay
 
 /// Optional Apple-approved CarPlay capability. No entitlement bypass is attempted.
@@ -31,3 +32,5 @@ import CarPlay
     controller?.setRootTemplate(list, animated: false, completion: nil)
   }
 }
+
+#endif

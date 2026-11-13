@@ -203,7 +203,7 @@ import UIKit
         .playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
     }.value
     #if compiler(>=6.4)
-      if #available(iOS 27.0, *) {
+      if #available(iOS 27.0, macCatalyst 27.0, *) {
         try await withCheckedThrowingContinuation {
           (continuation: CheckedContinuation<Void, Error>) in
           AVAudioSession.sharedInstance().activate(options: []) { active, error in
