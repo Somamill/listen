@@ -1,147 +1,370 @@
 import AVFoundation
-import MediaPlayer
 import Combine
+import MediaPlayer
 import UIKit
 
 @MainActor final class AudioController: ObservableObject {
-    @Published var bookID: UUID?
-    @Published var playing = false
-    @Published var position: Double = 0
-    @Published var loading = false
-    @Published var rate: Float = 1 { didSet { UserDefaults.standard.set(rate, forKey: "playbackRate"); if playing { player?.rate = rate }; nowPlaying() } }
-    @Published var sleepUntil: Date?
-    @Published var sleepChapterEnd: Double?
-    private(set) var player: AVPlayer?
-    private var observer: Any?
-    private var completion: NSObjectProtocol?
-    private var lastSave = Date.distantPast
-    private var pausedAt: Date?
-    private var index = 0
-    private let store: LibraryStore
-    private let cloud: CloudLibrary
-    var book: AudioBook? { store.books.first { $0.id == bookID } }
-    init(store: LibraryStore, cloud: CloudLibrary) {
-        self.store = store; self.cloud = cloud
-        rate = (UserDefaults.standard.object(forKey: "playbackRate") as? Float) ?? 1
-        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
-            guard let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
-            Task { @MainActor in
-                if type == AVAudioSession.InterruptionType.began.rawValue { self?.pause() }
+  @Published var bookID: UUID?
+  @Published var playing = false
+  @Published var position: Double = 0
+  @Published var loading = false
+  @Published var rate: Float = 1 {
+    didSet {
+      UserDefaults.standard.set(rate, forKey: "playbackRate")
+      if playing { player?.rate = rate }
+      nowPlaying()
+    }
+  }
+  @Published var queue: [UUID] = [] {
+    didSet { UserDefaults.standard.set(queue.map(\.uuidString), forKey: "playQueue") }
+  }
+  @Published var boost = false {
+    didSet {
+      UserDefaults.standard.set(boost, forKey: "volumeBoost")
+      Task { await configureBoost() }
+    }
+  }
+  let activity: ListeningActivity
+  private var previousTick: Date?
+  @Published var sleepUntil: Date?
+  @Published var sleepChapterEnd: Double?
+  private(set) var player: AVPlayer?
+  private var observer: Any?
+  private var completion: NSObjectProtocol?
+  private var lastSave = Date.distantPast
+  private var pausedAt: Date?
+  private var index = 0
+  private let store: LibraryStore
+  private let cloud: CloudLibrary
+  var book: AudioBook? { store.books.first { $0.id == bookID } }
+  init(store: LibraryStore, cloud: CloudLibrary) {
+    self.store = store
+    self.cloud = cloud
+    self.activity = ListeningActivity(root: store.root)
+    self.queue = (UserDefaults.standard.stringArray(forKey: "playQueue") ?? []).compactMap(
+      UUID.init(uuidString:))
+    self.boost = UserDefaults.standard.bool(forKey: "volumeBoost")
+    rate = (UserDefaults.standard.object(forKey: "playbackRate") as? Float) ?? 1
+    NotificationCenter.default.addObserver(
+      forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+    ) { [weak self] note in
+      guard let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
+      Task { @MainActor in
+        if type == AVAudioSession.InterruptionType.began.rawValue { self?.pause() }
+      }
+    }
+    NotificationCenter.default.addObserver(
+      forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
+    ) { [weak self] note in
+      if note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+        == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue
+      {
+        Task { @MainActor in self?.pause() }
+      }
+    }
+    let commands = MPRemoteCommandCenter.shared()
+    commands.playCommand.addTarget { [weak self] _ in
+      Task { @MainActor in self?.resume() }
+      return .success
+    }
+    commands.pauseCommand.addTarget { [weak self] _ in
+      Task { @MainActor in self?.pause() }
+      return .success
+    }
+    commands.togglePlayPauseCommand.addTarget { [weak self] _ in
+      Task { @MainActor in self?.toggle() }
+      return .success
+    }
+    commands.skipForwardCommand.preferredIntervals = [
+      NSNumber(value: UserDefaults.standard.object(forKey: "skipForward") as? Double ?? 30)
+    ]
+    commands.skipBackwardCommand.preferredIntervals = [
+      NSNumber(value: UserDefaults.standard.object(forKey: "skipBackward") as? Double ?? 15)
+    ]
+    commands.skipForwardCommand.addTarget { [weak self] _ in
+      Task { @MainActor in
+        self?.skip(UserDefaults.standard.object(forKey: "skipForward") as? Double ?? 30)
+      }
+      return .success
+    }
+    commands.skipBackwardCommand.addTarget { [weak self] _ in
+      Task { @MainActor in
+        self?.skip(-(UserDefaults.standard.object(forKey: "skipBackward") as? Double ?? 15))
+      }
+      return .success
+    }
+    commands.changePlaybackPositionCommand.addTarget { [weak self] event in
+      guard let event = event as? MPChangePlaybackPositionCommandEvent else {
+        return .commandFailed
+      }
+      Task { @MainActor in self?.seek(event.positionTime) }
+      return .success
+    }
+  }
+  func open(_ book: AudioBook, autoplay: Bool = true) async {
+    guard !loading else { return }
+    pause()
+    loading = true
+    defer { loading = false }
+    do {
+      if book.tracks.contains(where: {
+        !FileManager.default.fileExists(atPath: store.file(book, $0).path)
+      }) {
+        try await cloud.download(book)
+      }
+      bookID = book.id
+      position = book.state.finished ? 0 : book.state.position
+      if book.state.finished && autoplay { store.position(book.id, seconds: 0, finished: false) }
+      try await Self.activateSession()
+      UserDefaults.standard.set(book.id.uuidString, forKey: "lastPlayedBook")
+      recovery("started", at: position)
+      loadTrack(at: position, autoplay: autoplay)
+    } catch { store.error = error.localizedDescription }
+  }
+  private func loadTrack(at absolute: Double, autoplay: Bool) {
+    guard let book else { return }
+    if let observer {
+      player?.removeTimeObserver(observer)
+      self.observer = nil
+    }
+    if let completion { NotificationCenter.default.removeObserver(completion) }
+    player?.pause()
+    let track = book.trackPosition(at: absolute)
+    index = track.index
+    guard book.tracks.indices.contains(index) else { return }
+    let item = AVPlayerItem(url: store.file(book, book.tracks[index]))
+    item.audioTimePitchAlgorithm = .spectral
+    player = AVPlayer(playerItem: item)
+    Task { await configureBoost() }
+    player?.seek(
+      to: CMTime(seconds: track.offset, preferredTimescale: 600), toleranceBefore: .zero,
+      toleranceAfter: .zero)
+    observer = player?.addPeriodicTimeObserver(
+      forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main
+    ) { [weak self] _ in
+      Task { @MainActor in self?.tick() }
+    }
+    completion = NotificationCenter.default.addObserver(
+      forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+    ) { [weak self] _ in Task { @MainActor in self?.ended() } }
+    position = absolute
+    playing = autoplay
+    cloud.activeBookID = autoplay ? bookID : nil
+    previousTick = Date()
+    if autoplay { player?.playImmediately(atRate: rate) }
+    nowPlaying()
+  }
+  func tick() {
+    guard let book, let player else { return }
+    let current = player.currentTime().seconds
+    if current.isFinite { position = min(book.duration, book.offset(for: index) + current) }
+    let now = Date()
+    if playing, player.timeControlStatus == .playing, let previousTick {
+      activity.record(seconds: min(2, max(0, now.timeIntervalSince(previousTick))))
+    }
+    previousTick = now
+    if let until = sleepUntil, UserDefaults.standard.object(forKey: "fadeSleep") as? Bool ?? true {
+      player.volume = Float(max(0, min(1, until.timeIntervalSinceNow / 8)))
+    }
+    if (sleepUntil.map { Date() >= $0 } ?? false)
+      || (sleepChapterEnd.map { position >= $0 } ?? false)
+    {
+      recovery("sleep", at: position)
+      sleepUntil = nil
+      sleepChapterEnd = nil
+      pause()
+      return
+    }
+    if playing && Date().timeIntervalSince(lastSave) >= 10 { persist() }
+    if player.currentItem?.status == .failed {
+      pause()
+      store.error = player.currentItem?.error?.localizedDescription ?? "Playback could not start."
+    }
+    nowPlaying()
+  }
+  func persist() {
+    if let bookID { store.position(bookID, seconds: position) }
+    activity.save()
+    if let book { MobileCompanionBridge.publish(book) }
+    lastSave = Date()
+  }
+  func pause() {
+    player?.pause()
+    player?.volume = 1
+    playing = false
+    pausedAt = Date()
+    cloud.activeBookID = nil
+    persist()
+    nowPlaying()
+  }
+  nonisolated static func activateSession() async throws {
+    try await Task.detached {
+      try AVAudioSession.sharedInstance().setCategory(
+        .playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
+    }.value
+    #if compiler(>=6.4)
+      if #available(iOS 27.0, *) {
+        try await withCheckedThrowingContinuation {
+          (continuation: CheckedContinuation<Void, Error>) in
+          AVAudioSession.sharedInstance().activate(options: []) { active, error in
+            if let error {
+              continuation.resume(throwing: error)
+            } else if active {
+              continuation.resume()
+            } else {
+              continuation.resume(
+                throwing: ListenError.message("An audio output is not available."))
             }
+          }
         }
-        NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
-            if note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue { Task { @MainActor in self?.pause() } }
-        }
-        let commands = MPRemoteCommandCenter.shared()
-        commands.playCommand.addTarget { [weak self] _ in Task { @MainActor in self?.resume() }; return .success }
-        commands.pauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.pause() }; return .success }
-        commands.togglePlayPauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.toggle() }; return .success }
-        commands.skipForwardCommand.preferredIntervals = [30]
-        commands.skipBackwardCommand.preferredIntervals = [15]
-        commands.skipForwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.skip(30) }; return .success }
-        commands.skipBackwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.skip(-15) }; return .success }
-        commands.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            Task { @MainActor in self?.seek(event.positionTime) }; return .success
-        }
-    }
-    func open(_ book: AudioBook, autoplay: Bool = true) async {
-        guard !loading else { return }
-        pause(); loading = true; defer { loading = false }
-        do {
-            if book.tracks.contains(where: { !FileManager.default.fileExists(atPath: store.file(book, $0).path) }) { try await cloud.download(book) }
-            bookID = book.id; position = book.state.finished ? 0 : book.state.position
-            if book.state.finished && autoplay { store.position(book.id, seconds: 0, finished: false) }
-            try await Self.activateSession()
-            loadTrack(at: position, autoplay: autoplay)
-        } catch { store.error = error.localizedDescription }
-    }
-    private func loadTrack(at absolute: Double, autoplay: Bool) {
-        guard let book else { return }
-        if let observer { player?.removeTimeObserver(observer); self.observer = nil }
-        if let completion { NotificationCenter.default.removeObserver(completion) }
-        player?.pause()
-        let track = book.trackPosition(at: absolute); index = track.index
-        guard book.tracks.indices.contains(index) else { return }
-        let item = AVPlayerItem(url: store.file(book, book.tracks[index])); item.audioTimePitchAlgorithm = .spectral
-        player = AVPlayer(playerItem: item)
-        player?.seek(to: CMTime(seconds: track.offset, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-        observer = player?.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
-        }
-        completion = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in Task { @MainActor in self?.ended() } }
-        position = absolute; playing = autoplay; cloud.activeBookID = autoplay ? bookID : nil
-        if autoplay { player?.playImmediately(atRate: rate) }; nowPlaying()
-    }
-    func tick() {
-        guard let book, let player else { return }
-        let current = player.currentTime().seconds
-        if current.isFinite { position = min(book.duration, book.offset(for: index) + current) }
-        if (sleepUntil.map { Date() >= $0 } ?? false) || (sleepChapterEnd.map { position >= $0 } ?? false) { sleepUntil = nil; sleepChapterEnd = nil; pause(); return }
-        if playing && Date().timeIntervalSince(lastSave) >= 10 { persist() }
-        if player.currentItem?.status == .failed { pause(); store.error = player.currentItem?.error?.localizedDescription ?? "Playback could not start." }
-        nowPlaying()
-    }
-    func persist() {
-        if let bookID { store.position(bookID, seconds: position) }; lastSave = Date()
-    }
-    func pause() { player?.pause(); playing = false; pausedAt = Date(); cloud.activeBookID = nil; persist(); nowPlaying() }
-    nonisolated static func activateSession() async throws {
-        try await Task.detached {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.allowAirPlay,.allowBluetoothA2DP])
-        }.value
-        #if compiler(>=6.4)
-        if #available(iOS 27.0, *) {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
-                AVAudioSession.sharedInstance().activate(options: []) { active, error in
-                    if let error { continuation.resume(throwing: error) }
-                    else if active { continuation.resume() }
-                    else { continuation.resume(throwing: ListenError.message("An audio output is not available.")) }
-                }
-            }
-        } else { try await Task.detached { try AVAudioSession.sharedInstance().setActive(true) }.value }
-        #else
+      } else {
         try await Task.detached { try AVAudioSession.sharedInstance().setActive(true) }.value
-        #endif
-    }
-    func resume() {
-        guard player != nil, !loading else { return }
-        loading = true
-        Task {
-            defer { loading = false }
-            do {
-                try await Self.activateSession()
-                if let book, book.state.updatedAt > lastSave { loadTrack(at: book.state.position, autoplay: true); return }
-                if UserDefaults.standard.object(forKey: "smartRewind") as? Bool ?? true, let pausedAt, Date().timeIntervalSince(pausedAt) > 10 { seek(max(0, position-10)) }
-                pausedAt = nil; player?.playImmediately(atRate: rate); playing = true; cloud.activeBookID = bookID; nowPlaying()
-            } catch { store.error = error.localizedDescription }
+      }
+    #else
+      try await Task.detached { try AVAudioSession.sharedInstance().setActive(true) }.value
+    #endif
+  }
+  func resume() {
+    guard player != nil, !loading else { return }
+    loading = true
+    Task {
+      defer { loading = false }
+      do {
+        try await Self.activateSession()
+        if let book, book.state.updatedAt > lastSave {
+          loadTrack(at: book.state.position, autoplay: true)
+          return
         }
-    }
-    func toggle() { playing ? pause() : resume() }
-    func seek(_ value: Double) {
-        guard let book else { return }
-        let value = max(0,min(value,book.duration)); let track = book.trackPosition(at: value)
-        if track.index != index { loadTrack(at: value, autoplay: playing) }
-        else { player?.seek(to: CMTime(seconds: track.offset, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero); position = value }
-        persist(); nowPlaying()
-    }
-    func skip(_ interval: Double) { seek(position+interval) }
-    private func ended() {
-        guard let book else { return }
-        if index+1 < book.tracks.count { loadTrack(at: book.offset(for: index+1), autoplay: true) }
-        else {
-            pause(); position = book.duration; store.position(book.id, seconds: position, finished: true)
-            if sleepUntil != nil || sleepChapterEnd != nil { sleepUntil = nil; sleepChapterEnd = nil; return }
-            if !book.folder.isEmpty, let next = store.books.first(where: { $0.folder == book.folder && $0.id != book.id && !$0.state.finished }) { Task { await open(next) } }
+        if UserDefaults.standard.object(forKey: "smartRewind") as? Bool ?? true, let pausedAt {
+          seek(
+            max(
+              0,
+              position
+                - Self.rewindAmount(
+                  pausedFor: Date().timeIntervalSince(pausedAt),
+                  limit: UserDefaults.standard.object(forKey: "rewindLimit") as? Double ?? 30)))
         }
+        pausedAt = nil
+        previousTick = Date()
+        player?.volume = 1
+        player?.playImmediately(atRate: rate)
+        playing = true
+        cloud.activeBookID = bookID
+        nowPlaying()
+      } catch { store.error = error.localizedDescription }
     }
-    func bookmark() {
-        guard var book else { return }; book.bookmarks.append(Bookmark(position: position, note: timeLabel(position))); book.metadataUpdatedAt = Date(); store.update(book)
+  }
+  func toggle() { playing ? pause() : resume() }
+  func seek(_ value: Double) {
+    if abs(value - position) > 1 { recovery("skip", at: position) }
+    guard let book else { return }
+    let value = max(0, min(value, book.duration))
+    let track = book.trackPosition(at: value)
+    if track.index != index {
+      loadTrack(at: value, autoplay: playing)
+    } else {
+      player?.seek(
+        to: CMTime(seconds: track.offset, preferredTimescale: 600), toleranceBefore: .zero,
+        toleranceAfter: .zero)
+      position = value
     }
-    private func nowPlaying() {
-        guard let book else { return }
-        var info: [String:Any] = [MPMediaItemPropertyTitle:book.title, MPMediaItemPropertyArtist:book.author,MPMediaItemPropertyPlaybackDuration:book.duration,MPNowPlayingInfoPropertyElapsedPlaybackTime:position,MPNowPlayingInfoPropertyPlaybackRate:playing ? rate : 0,MPNowPlayingInfoPropertyDefaultPlaybackRate:rate]
-        if let filename = book.coverFilename, let image = UIImage(contentsOfFile: store.directory(book).appendingPathComponent(filename).path) { info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image } }
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    persist()
+    nowPlaying()
+  }
+  func skip(_ interval: Double) { seek(position + interval) }
+  private func ended() {
+    guard let book else { return }
+    if index + 1 < book.tracks.count {
+      loadTrack(at: book.offset(for: index + 1), autoplay: true)
+    } else {
+      pause()
+      position = book.duration
+      store.position(book.id, seconds: position, finished: true)
+      if sleepChapterEnd != nil || (sleepUntil.map { Date() >= $0 } ?? false) {
+        sleepUntil = nil
+        sleepChapterEnd = nil
+        return
+      }
+      while !queue.isEmpty {
+        let nextID = queue.removeFirst()
+        if let next = store.books.first(where: { $0.id == nextID }) {
+          Task { await open(next) }
+          return
+        }
+      }
+      if UserDefaults.standard.object(forKey: "autoplayNext") as? Bool ?? true,
+        let index = store.books.firstIndex(where: { $0.id == book.id }),
+        let next = store.books.dropFirst(index + 1).first(where: {
+          $0.folder == book.folder && !$0.state.finished
+        })
+      {
+        Task { await open(next) }
+      }
     }
+  }
+  nonisolated static func rewindAmount(pausedFor: Double, limit: Double) -> Double {
+    guard pausedFor >= 5 else { return 0 }
+    return min(max(0, limit), log1p(max(0, pausedFor)) * 3)
+  }
+  func enqueue(_ id: UUID, next: Bool = false) {
+    queue.removeAll { $0 == id }
+    if next { queue.insert(id, at: 0) } else { queue.append(id) }
+  }
+  func sleep(minutes: Int) {
+    recovery("sleep", at: position)
+    sleepUntil = Date().addingTimeInterval(Double(minutes * 60))
+    sleepChapterEnd = nil
+  }
+  func recovery(_ kind: String, at value: Double) {
+    guard UserDefaults.standard.object(forKey: "recoveryBookmarks") as? Bool ?? true, var book
+    else { return }
+    activity.event(book: book.id, position: value, kind: kind)
+    if book.bookmarks.contains(where: { $0.kind == kind && abs($0.position - value) < 1 }) {
+      return
+    }
+    let label =
+      kind == "started"
+      ? "Before listening" : kind == "sleep" ? "Sleep timer position" : "Before seeking"
+    book.bookmarks.append(Bookmark(position: value, note: label, kind: kind))
+    let automatic = book.bookmarks.filter { $0.kind != nil }.suffix(100)
+    book.bookmarks = book.bookmarks.filter { $0.kind == nil } + automatic
+    book.metadataUpdatedAt = Date()
+    store.update(book)
+  }
+  private func configureBoost() async {
+    guard let item = player?.currentItem else { return }
+    guard boost else {
+      item.audioMix = nil
+      return
+    }
+    do {
+      guard let track = try await item.asset.loadTracks(withMediaType: .audio).first,
+        player?.currentItem === item
+      else { return }
+      item.audioMix = try VolumeBoost.mix(track: track)
+    } catch { store.error = error.localizedDescription }
+  }
+  func bookmark() {
+    guard var book else { return }
+    book.bookmarks.append(Bookmark(position: position, note: timeLabel(position)))
+    book.metadataUpdatedAt = Date()
+    store.update(book)
+  }
+  private func nowPlaying() {
+    guard let book else { return }
+    var info: [String: Any] = [
+      MPMediaItemPropertyTitle: book.title, MPMediaItemPropertyArtist: book.author,
+      MPMediaItemPropertyPlaybackDuration: book.duration,
+      MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
+      MPNowPlayingInfoPropertyPlaybackRate: playing ? rate : 0,
+      MPNowPlayingInfoPropertyDefaultPlaybackRate: rate,
+    ]
+    if let filename = book.coverFilename,
+      let image = UIImage(
+        contentsOfFile: store.directory(book).appendingPathComponent(filename).path)
+    {
+      info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }
+    MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+  }
 }

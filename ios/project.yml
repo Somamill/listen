@@ -8,14 +8,18 @@ settings:
     SWIFT_VERSION: '5.9'
     TARGETED_DEVICE_FAMILY: '1,2'
     DEVELOPMENT_TEAM: ''
-    MARKETING_VERSION: '0.1.0'
-    CURRENT_PROJECT_VERSION: '1'
+    MARKETING_VERSION: '0.2.0'
+    CURRENT_PROJECT_VERSION: '2'
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    exactVersion: 0.9.20
 targets:
   Listen:
     type: application
     platform: iOS
-    sources: [Listen]
+    sources: [Listen, Shared]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.somamill.listen.mobile
@@ -24,13 +28,37 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Listen/Info.plist
         CODE_SIGN_ENTITLEMENTS: Listen/Listen.entitlements
-    dependencies: []
+    dependencies:
+      - package: ZIPFoundation
+      - target: ListenWidgets
+      - target: ListenShare
+  ListenWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [ListenWidgets, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.somamill.listen.mobile.widgets
+        INFOPLIST_FILE: ListenWidgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ListenWidgets/ListenWidgets.entitlements
+        SKIP_INSTALL: YES
+  ListenShare:
+    type: app-extension
+    platform: iOS
+    sources: [ListenShare, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.somamill.listen.mobile.share
+        INFOPLIST_FILE: ListenShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ListenShare/ListenShare.entitlements
+        SKIP_INSTALL: YES
   ListenTests:
     type: bundle.unit-test
     platform: iOS
     sources: [ListenTests]
     dependencies:
       - target: Listen
+      - package: ZIPFoundation
   ListenUITests:
     type: bundle.ui-testing
     platform: iOS

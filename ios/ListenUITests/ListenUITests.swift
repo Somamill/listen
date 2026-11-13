@@ -25,4 +25,13 @@ final class ListenUITests:XCTestCase {
         XCTAssertTrue(app.staticTexts["Sample recording"].firstMatch.waitForExistence(timeout:30))
         let attachment=XCTAttachment(screenshot:app.screenshot());attachment.name="Library";attachment.lifetime = .keepAlways;add(attachment)
     }
+    func testServerConnectionForm() throws {
+        let app = XCUIApplication(); app.launchArguments = ["--uitesting"]; app.launch()
+        app.buttons["Servers"].firstMatch.tap()
+        let addServer = app.buttons["addServer"]; XCTAssertTrue(addServer.waitForExistence(timeout: 10)); addServer.tap()
+        XCTAssertTrue(app.textFields["serverURL"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.switches["Use an API token"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Servers"; shot.lifetime = .keepAlways; add(shot)
+    }
+
 }

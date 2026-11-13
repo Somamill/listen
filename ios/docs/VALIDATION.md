@@ -1,4 +1,25 @@
-# Native preview validation
+# Native preview validation — 0.2.0
+
+Checked 13 November 2026 with Xcode 27.2. This is an unsigned developer preview. The [REA evidence and feature matrix](BOOKPLAYER-PARITY.md) distinguishes independently implemented features from BookPlayer declarations and unverified capabilities.
+
+| Check | Result |
+| --- | --- |
+| Core XCTest | PASS: 15 passed, 1 explicitly skipped, 0 failures. Tests cover genuine AAC conversion/chapter round trips, import grouping/queuing, recovery bookmark limits and legacy decoding, folder paths, PCM gain limits, rewind bounds, elapsed history, mocked server responses and credential origin restrictions. |
+| Keychain token storage | UNVERIFIED on a provisioned device. Unsigned simulator returns `errSecMissingEntitlement` (-34018); only that condition skips its dedicated test. Other Keychain errors still fail. The app reports the error and never falls back to plain-text credentials. |
+| Browser upload | PASS on simulator loopback: unauthenticated rejection, token-authenticated upload, duplicate rejection and stop state. LAN access/Local Network permission needs a physical device. Active connections are canceled at stop; idle timeout and connection/file limits are enforced. |
+| Native iPhone UI | PASS: four flows — library, playback/bookmark/dismissal, Settings and server form. Real screenshots refreshed. |
+| Native iPad UI | PASS: all four flows, including server form, 0 failures; light appearance screenshots refreshed. |
+| Simulator / unsigned iOS Release | Both compile with app, widget and share extension. This does not prove device installation or capability provisioning. |
+| Package integrity | PASS: bundled sample checksum matches source, main and extension executables are present, identifiers/version agree. A first build copied a cloud-placeholder resource as zero bytes; resources were hydrated and rebuilt, then all media tests passed. The packaging checker now runs in CI. |
+| Browser page design | Hallmark render: 0 FAIL / 1 WARN, tested 320–1920px. The section-count warning is intentionally retained for a single-task transfer utility. Impeccable detector run on the supported HTML surface. Native SwiftUI is validated with builds, XCTest and screenshots, not HTML checks. |
+| Personal configuration scan | PASS: no personal Mac paths, Goodreads profile ID, PIA address or qBittorrent WebUI address in mobile source/config/docs. |
+| REA provenance | PASS: installed BookPlayer 6.0.1 (192) inspected read-only; public evidence summary committed, raw resource dump excluded. |
+
+The SDK's App Intents training tool logs “Could not archive SSU artifacts” while the build succeeds and intent metadata is emitted. Spoken Siri invocation is therefore **UNVERIFIED**, not treated as a successful runtime check.
+
+Still required before a public device release: a real signing team, App Group/iCloud provisioning, Keychain and share/widget checks on hardware, authenticated Goodreads and media-server accounts, two-device iCloud conflicts/transfers, background/headphone/lock-screen routes, long books/storage pressure, localization and a full assistive-technology audit. CarPlay remains disabled until its approved capability is configured and tested. Apple Watch and complete BookPlayer parity are not included. No live service or entitlement approval is implied by mocks or compiled code.
+
+# Earlier 0.1.0 validation
 
 Checked 13 November 2026 with Xcode 27.2. This is a development preview, not a signed or App Store-ready distribution.
 

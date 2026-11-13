@@ -15,13 +15,19 @@ xcodebuild -project ios/Listen.xcodeproj -scheme Listen \
   -derivedDataPath /tmp/listen-ios-build CODE_SIGNING_ALLOWED=NO test
 ```
 
+## BookPlayer-inspired additions (0.2.0)
+
+REA was used to inspect the installed BookPlayer resources. This preview adds ZIP import, nested folders and sorting, an explicit playback queue, bookmark notes/recovery, listening history, configurable skips/rewind, volume boost, custom/fading sleep timers, HTTPS media-server browsing/downloads, temporary browser transfers, share-sheet import, a continue-listening widget and Siri shortcut. See the [evidence and feature matrix](docs/BOOKPLAYER-PARITY.md) for limits and optional CarPlay setup.
+
+The widget and share extension require a provisioned App Group shared by all targets. Change the identifiers in all entitlement files and `Shared/CompanionSnapshot.swift` together when signing with your own team. Server tokens are stored in device Keychain; server configuration and listening history stay local. A local browser transfer uses HTTP on trusted Wi-Fi with an expiring secret link while its screen is open.
+
 ## Import and listen
 
-Use **Library → ＋ → Import audio files** or **Import a folder**. Files/iCloud Drive providers, AirDrop/open-in, and file sharing into the app’s Documents folder can supply audio; use the Files picker to import shared documents. MP3, M4B, M4A, FLAC, WAV, AAC and AIFF are accepted when AVFoundation can decode them. DRM-protected files are rejected. Imports copy audio into the app library and never modify your original source files. Multiple selected audio files combine into a book in natural filename order; switch combining off to import them separately. A folder containing book subfolders groups those subfolders separately.
+Use **Library → ＋ → Import audio files** or **Import a folder**. ZIP archives, Files/iCloud Drive providers, AirDrop/open-in, and file sharing into the app’s Documents folder can supply audio; use the Files picker to import shared documents. MP3, M4B, M4A, FLAC, WAV, AAC and AIFF are accepted when AVFoundation can decode them. DRM-protected files are rejected. Imports copy audio into the app library and never modify your original source files. Multiple selected audio files combine into a book in natural filename order; switch combining off to import them separately. A folder containing book subfolders groups those subfolders separately.
 
 Your existing Mac audiobook folder is **not hard-coded or automatically accessible on iOS**. Select it through Files → iCloud Drive. Imported books use the app’s own iCloud container for later sync.
 
-- Playback position, finished state, folders/queues, chapter navigation, speed (0.5–3×), 15/30-second skips, smart rewind, sleep timer, bookmarks, AirPlay and lock-screen/headset commands.
+- Playback position, finished state, folders/queues, chapter navigation, speed (0.5–3×), configurable skips, smart rewind, sleep timer, bookmarks, AirPlay and lock-screen/headset commands.
 - Edit title, author, narrator and folder in a book’s **Edit** screen. Books in the same folder continue in library order.
 - Metadata uses embedded tags first. Optional automatic lookup sends title/author text to Apple Books Search, applies only confident matches, and downloads cover art. Audio is never sent to the lookup service. You can keep embedded metadata and edit manually.
 - Optional automatic MP3 conversion, or **Create M4B audiobook** on a book. This **decodes MP3 and encodes AAC**, joins tracks, writes title/author/artwork and Nero-style chapter markers, and verifies duration/playability before changing the library record. Originals stay in the local library. Use the book’s Share button to export converted audio to Files, including another iCloud Drive folder. MP3→AAC is lossy; automatic conversion defaults off. Keep the app in the foreground for long conversions. At most 255 chapter markers are supported. Some other players may not read Nero-style chapters; listen. also retains its chapter index.
@@ -50,10 +56,12 @@ Goodreads can expire sessions, block embedded third-party sign-in, or change its
 | iCloud audio library and progress | Implemented; signed two-device verification required |
 | Goodreads shelves and independent website session | Implemented; CSV tested, authenticated website sync unverified |
 | Dark/light appearance, native iPad split view, Dynamic Type, VoiceOver labels | Native implementation; simulator visual review, assistive-device audit remains |
-| ZIP import, Audiobookshelf/Jellyfin server integrations | Not implemented in this preview |
+| ZIP import, Audiobookshelf/Jellyfin server integrations | Implemented; live authenticated server verification remains required |
 | Library reorder | Implemented through native Edit controls; use the All shelf without a search |
-| Nested playlists and audio volume boost | Not implemented in this preview |
-| Apple Watch, CarPlay, widgets, alternative icons | Not implemented in this preview |
+| Nested folders, explicit play queue and audio volume boost | Implemented; see the REA comparison matrix |
+| Share extension, widget, Siri shortcut | Implemented; signed App Group and hardware verification required |
+| CarPlay | Optional adapter/configuration; entitlement approval and validation required |
+| Apple Watch and alternative icons | Not included |
 | App Store signing, provisioning, privacy submission and TestFlight | Not completed |
 
 ## Before distribution

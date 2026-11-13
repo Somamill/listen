@@ -100,4 +100,4 @@ Cream/sage and forest themes are available in [extras/qbittorrent](extras/qbitto
 
 ## iPhone & iPad developer preview
 
-A separate native audiobook player is being prepared in [ios/](ios/README.md), with local/Files imports, playback controls, Goodreads shelves, automatic metadata, AAC/M4B conversion, and iCloud library/progress sync code. It contains no torrent features. See the setup guide and feature matrix for verified behavior and pending signed-device/App Store work. This preview does not replace the macOS app.
+A separate native audiobook player is being prepared in [ios/](ios/README.md), with local/Files/ZIP imports, playback controls, Goodreads shelves, automatic metadata, AAC/M4B conversion, iCloud library/progress sync code, media-server downloads, browser transfers, and widget/share extensions. It contains no torrent features. See the setup guide and feature matrix for verified behavior and pending signed-device/App Store work. This preview does not replace the macOS app.
