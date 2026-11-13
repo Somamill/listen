@@ -16,9 +16,18 @@ Version 1.0.0 (4), iPhone/iPad and universal Intel/Apple Silicon Mac Catalyst. U
 
 ## Submission status
 
-Final Store submission checks and review submission are in progress. Neither version is approved or publicly available yet. Publication follows Apple's approval.
+Both versions were submitted successfully and are **WAITING FOR REVIEW**, with **AFTER_APPROVAL** automatic release enabled.
 
-Signed-device iCloud continuation, background/audio route changes, Siri and authenticated third-party-account flows have not been certified end to end. Build/package validation and simulator tests do not establish those guarantees. No identity, certificate, proxy, private folder, account or audio library from the developer's Mac is embedded in the app.
+| Edition | Version/build | Apple status |
+| --- | --- | --- |
+| iPhone & iPad | 1.0.0 (4) | Waiting for Review |
+| Mac Catalyst, Intel & Apple Silicon | 1.0.0 (4) | Waiting for Review |
+
+Neither edition is approved or publicly available yet. Apple may request changes. No further signing password prompt is required by the prepared local update pipeline. Temporary Safari automation is disabled and the dedicated signing keychain is locked.
+
+Source PR #6 is merged. All hosted native, Python, dependency-audit and brand checks pass: https://github.com/Somamill/listen/actions/runs/43529108895.
+
+Signed-device iCloud continuation, background/audio route changes, Siri and authenticated third-party-account flows have not been certified end to end. Build/package validation and simulator tests do not establish those guarantees. Signing keys and API credentials stay private. Store packages contain the standard public signing certificate and provisioning information. Personal profiles, network settings, folders and audio libraries remain per user.
 
 Store record: https://appstoreconnect.apple.com/apps/6834434329/distribution
 
