@@ -125,6 +125,7 @@ struct BookDetail: View {
     let bookID: UUID
     @EnvironmentObject var store: LibraryStore
     @EnvironmentObject var player: AudioController
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var edit = false
     @State private var showPlayer = false
     var book: AudioBook? { store.books.first { $0.id == bookID } }
@@ -133,7 +134,7 @@ struct BookDetail: View {
             if let book {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        BookArtwork(book: book, root: store.root).frame(maxWidth: 300).aspectRatio(1,contentMode: .fit).frame(maxWidth: .infinity)
+                        BookArtwork(book: book, root: store.root).frame(width: sizeClass == .compact ? 240 : 300,height: sizeClass == .compact ? 240 : 300).frame(maxWidth: .infinity)
                         VStack(alignment: .leading, spacing: 8) {
                             Text(book.title).font(.largeTitle.weight(.bold)).accessibilityAddTraits(.isHeader)
                             Text(book.author).font(.title3).foregroundStyle(.secondary)

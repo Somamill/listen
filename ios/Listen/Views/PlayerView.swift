@@ -16,7 +16,7 @@ struct PlayerView: View {
             if let book = player.book {
                 ScrollView {
                     VStack(spacing: sizeClass == .compact ? 16 : 24) {
-                        BookArtwork(book: book,root:store.root).frame(maxWidth: sizeClass == .compact ? 220 : 320).aspectRatio(1,contentMode:.fit)
+                        BookArtwork(book: book,root:store.root).frame(width: sizeClass == .compact ? 220 : 320,height: sizeClass == .compact ? 220 : 320)
                         VStack(spacing:8) { Text(book.title).font(.title.weight(.bold)).multilineTextAlignment(.center); Text(book.author).foregroundStyle(.secondary) }
                         if let current = book.chapters.last(where: { $0.start <= player.position }) { Text(current.title).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center) }
                         VStack {

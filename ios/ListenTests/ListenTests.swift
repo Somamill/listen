@@ -52,6 +52,8 @@ import AVFoundation
         XCTAssertTrue(try Data(contentsOf:output).range(of:Data("chpl".utf8)) != nil)
         let readChapters=try MP4Chapters.read(from:output);XCTAssertEqual(readChapters.count,2);XCTAssertEqual(readChapters[1].start,book.chapters[1].start,accuracy:0.01)
         let reimported=try await Importer.copy([output],into:root);XCTAssertEqual(reimported.chapters.count,2)
+        let evidence=FileManager.default.urls(for:.cachesDirectory,in:.userDomainMask)[0].appendingPathComponent("verified-conversion.m4b")
+        try? FileManager.default.removeItem(at:evidence);try FileManager.default.copyItem(at:output,to:evidence)
         XCTAssertTrue(FileManager.default.fileExists(atPath:directory.appendingPathComponent(book.tracks[0].filename).path))
         XCTAssertTrue(FileManager.default.fileExists(atPath:first.path))
     }
