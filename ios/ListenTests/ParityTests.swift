@@ -1,9 +1,40 @@
+import WebKit
 import XCTest
 import AVFoundation
 import ZIPFoundation
 @testable import Listen
 
 @MainActor final class ParityTests: XCTestCase {
+    func testGoodreadsNavigationAndScriptBoundaries() {
+        XCTAssertTrue(GoodreadsPrivacy.needsWebsiteScripts(URL(string: "https://www.goodreads.com/ap/signin")!))
+        XCTAssertTrue(GoodreadsPrivacy.needsWebsiteScripts(URL(string: "https://www.amazon.com/ap/signin")!))
+        XCTAssertFalse(GoodreadsPrivacy.needsWebsiteScripts(URL(string: "https://www.goodreads.com/review/list/123")!))
+        XCTAssertFalse(GoodreadsPrivacy.allowsNavigation(URL(string: "https://goodreads.com.attacker.test/ap/signin")!, mainFrame: true))
+        XCTAssertFalse(GoodreadsPrivacy.allowsNavigation(URL(string: "http://www.goodreads.com/user/sign_in")!, mainFrame: true))
+        let captcha = URL(string: "https://www.google.com/recaptcha/api2/anchor")!
+        XCTAssertFalse(GoodreadsPrivacy.allowsNavigation(captcha, mainFrame: true))
+        XCTAssertTrue(GoodreadsPrivacy.allowsNavigation(captcha, mainFrame: false))
+        XCTAssertFalse(GoodreadsPrivacy.allowsNavigation(URL(string: "https://www.google.com/analytics/")!, mainFrame: false))
+    }
+    func testGoodreadsRulesCompileAndNativeDOMExtractionStillWorks() async throws {
+        let rules: WKContentRuleList = try await withCheckedThrowingContinuation { continuation in
+            WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "listen-privacy-test", encodedContentRuleList: GoodreadsPrivacy.rules) { list, error in
+                if let list { continuation.resume(returning: list) }
+                else { continuation.resume(throwing: error ?? ListenError.message("Content rules did not compile")) }
+            }
+        }
+        let config = WKWebViewConfiguration(); config.websiteDataStore = .nonPersistent()
+        config.defaultWebpagePreferences.allowsContentJavaScript = false
+        config.userContentController.add(rules)
+        let loaded = expectation(description: "Static shelf document loaded")
+        let probe = GoodreadsPrivacyPageProbe { loaded.fulfill() }
+        let web = WKWebView(frame: .zero, configuration: config); web.navigationDelegate = probe
+        web.loadHTMLString("<p id='check'>native extraction</p><script>document.getElementById('check').textContent='website script ran'</script>", baseURL: URL(string: "https://www.goodreads.com/review/list/123"))
+        await fulfillment(of: [loaded], timeout: 15)
+        let text = try await web.evaluateJavaScript("document.getElementById('check').textContent") as? String
+        XCTAssertEqual(text, "native extraction")
+    }
+
     var root: URL!
     override func setUp() {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -168,4 +199,10 @@ private final class ServerFixtureProtocol: URLProtocol {
         client?.urlProtocol(self, didLoad: Data(body.utf8)); client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+}
+
+@MainActor private final class GoodreadsPrivacyPageProbe: NSObject, WKNavigationDelegate {
+    let finished: () -> Void
+    init(_ finished: @escaping () -> Void) { self.finished = finished }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finished() }
 }

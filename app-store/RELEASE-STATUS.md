@@ -1,37 +1,27 @@
 # App Store release candidate
 
-Version 1.0.0 (3), iPhone/iPad and Mac Catalyst. Updated 14 November 2026.
+Version 1.0.0 (4), iPhone/iPad and universal Intel/Apple Silicon Mac Catalyst. Updated 14 November 2026.
 
-The Mac App Store edition is a sandboxed, self-contained native player. The separate desktop torrent/catalog app has a different bundle identifier and remains installed as `listen.app`. The Store edition builds as `listen Player.app`.
+## Completed
 
-## Verified
+- Both Release archives build and pass packaging checks. All 18 core simulator tests pass, including WebKit content-rule compilation and native DOM extraction with website scripts disabled. Keychain-token tests are excluded to honor the request to avoid password prompts.
+- A dedicated listen signing keychain and new identities allow noninteractive signing without changing existing keychain passwords, access controls or existing distribution certificates. Private credentials remain outside the repository.
+- Website-generated main profiles grant iCloud permissions on both platforms; all three targets have the shared App Group.
+- The iOS app, universal Mac app and both widget/share extensions are signed and strictly verified. The Mac installer signature is verified.
+- Apple validation succeeds for both build 4 packages. Uploads have processed as **VALID**, and build 4 is selected for both Store versions.
+- Free pricing and availability in all current storefronts are configured. Country-specific compliance remains subject to Apple's submission checks.
+- Age-rating capabilities, copyright, review contact and third-party-content declaration are saved.
+- Three current native iPhone screenshots, three iPad screenshots and one native Mac screenshot have processed successfully. They show an original sample recording, without private account data or invented book content. The Mac capture uses the same core UI in an isolated preview with a resized window; it does not establish signed-device iCloud behavior.
+- Privacy responses are published and the public privacy-policy URL is saved. Optional provider account/website data is disclosed. Goodreads now blocks third-party webpage resources except provider assets and authentication CAPTCHA; page scripts are disabled during shelf refresh.
 
-- Both current-source unsigned Release archives build successfully.
-- Sixteen core simulator tests pass; four iPhone and four iPad UI flows pass. The Keychain-token replacement test was explicitly excluded to honor the request to avoid keychain password prompts.
-- GitHub native CI passes for iOS simulator and Mac Catalyst: https://github.com/Somamill/listen/actions/runs/43521177440. Python tests, dependency audit and brand checks also pass.
-- Native source and Store preparation are published on `main` through PRs #4 and #5.
-- The public policy at https://github.com/Somamill/listen/blob/main/app-store/PRIVACY.md is saved in App Store Connect.
-- Both packages pass checks for sample checksum, main executable, widget/share executables, matching version/build numbers, identifiers and privacy manifest.
-- Main, widget and share identifiers are registered; the App Group is assigned to all three and the iCloud container to the main app.
-- A website-generated iOS main profile includes the required iCloud permissions. API-generated main profiles still omit those permissions and must not be used.
-- App Store Connect has iOS and macOS version 1.0.0 listing drafts: https://appstoreconnect.apple.com/apps/6834434329/distribution. Descriptions, keywords, support URL, category and review contact are saved.
-- Source contains no signing credentials, profiles or private account details.
+## Submission status
 
-## Still required before submission
+Final Store submission checks and review submission are in progress. Neither version is approved or publicly available yet. Publication follows Apple's approval.
 
-- Signing remains stopped at the user's request to avoid keychain password prompts. No signing/password workaround is attempted.
-- Generate a valid Mac main distribution profile through Apple's website when its developer session is available.
-- Sign and export both editions, verify all extensions and sandbox/iCloud permissions, then validate and upload the binaries.
-- Verify real-device iCloud transfer and playback continuation, background audio, share extension and widget using signed builds. Unsigned builds cannot establish these guarantees.
-- Complete Store screenshots for all required device families, privacy answers, age rating, pricing/availability and any account-specific compliance requirements.
-- Associate validated builds and submit both platform versions for review. Publication follows Apple's approval.
+Signed-device iCloud continuation, background/audio route changes, Siri and authenticated third-party-account flows have not been certified end to end. Build/package validation and simulator tests do not establish those guarantees. No identity, certificate, proxy, private folder, account or audio library from the developer's Mac is embedded in the app.
 
-There are currently no uploaded builds and no review submissions. GitHub source preparation is not an App Store release. Temporary Safari JavaScript automation is disabled.
+Store record: https://appstoreconnect.apple.com/apps/6834434329/distribution
 
-## Identifiers
+## Separate desktop edition
 
-- Main: `io.github.somamill.listen.mobile`
-- Widget: `io.github.somamill.listen.mobile.widgets`
-- Share: `io.github.somamill.listen.mobile.share`
-- Group: `group.io.github.somamill.listen.mobile`
-- iCloud: `iCloud.io.github.somamill.listen.mobile`
+The sandboxed Mac Store edition builds as `listen Player.app`, with bundle identifier `io.github.somamill.listen.mobile`. The existing desktop catalogue/torrent application remains separate, with its installation, library and qBittorrent routing unchanged.

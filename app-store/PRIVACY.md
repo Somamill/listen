@@ -1,6 +1,6 @@
 # listen. App Store edition — Privacy Policy
 
-Last updated: 13 November 2026
+Last updated: 14 November 2026
 
 listen. is a personal audiobook player for iPhone, iPad and Mac. This policy covers the native App Store edition. The separate desktop catalogue/torrent application has its own policy.
 
@@ -19,6 +19,10 @@ Automatic metadata matching sends book title and author text to Apple's Books se
 ## Goodreads
 
 Connecting Goodreads opens Goodreads in an app-specific website session. Sign-in information is submitted to Goodreads or its sign-in provider, and website cookies remain in the app's WebKit storage. Goodreads and any pages opened there are governed by their respective privacy policies. The app stores your selected profile identifier and a local cache of your reading shelves; it does not provide a developer-hosted copy of your account. You may disconnect Goodreads and remove the cached connection in Settings. A CSV import is available instead of website sign-in.
+
+The embedded session blocks third-party webpage resources except Goodreads/Amazon provider assets and Google CAPTCHA resources needed for authentication. Website JavaScript is enabled for authentication pages and disabled during shelf refresh; the app reads shelf HTML with its own code. If these controls cannot initialize, the app does not load Goodreads pages and offers retry or CSV import. No advertising SDK, IDFA access or developer-operated cross-app tracking is included.
+
+Goodreads/Amazon may retain account information, identifiers, approximate network location and website activity for their account, security, personalization and analytics purposes. The Store privacy label conservatively includes this optional provider data. These practices are governed by the [Goodreads Privacy Policy](https://www.goodreads.com/about/privacy) and Amazon's linked notice. The resource controls do not erase information already held by a provider or promise to control its server-side processing.
 
 ## Your own media server
 

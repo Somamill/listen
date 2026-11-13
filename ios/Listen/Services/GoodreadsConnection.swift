@@ -13,18 +13,48 @@ import Combine
     private var timer: Timer?
     private var collecting: [String:GoodreadsBook] = [:]
     private var page = 1
+    private var privacyReady = false
+    private var preparingPrivacy = false
+    private var pendingConnect = false
+    private var pendingRefresh = false
+    private func preparePrivacy() {
+        guard !preparingPrivacy, !privacyReady else { return }
+        preparingPrivacy = true
+        WKContentRuleListStore.default().compileContentRuleList(
+            forIdentifier: "listen-goodreads-privacy-v1", encodedContentRuleList: GoodreadsPrivacy.rules
+        ) { [weak self] rules, error in
+            Task { @MainActor in
+                guard let self else { return }
+                self.preparingPrivacy = false
+                guard let rules, error == nil else {
+                    self.status = "Goodreads privacy controls could not start. Try connecting again, or import a CSV."
+                    return
+                }
+                self.webView.configuration.userContentController.add(rules)
+                self.privacyReady = true
+                let connect = self.pendingConnect, refresh = self.pendingRefresh
+                self.pendingConnect = false; self.pendingRefresh = false
+                if connect { self.connect() } else if refresh { self.refresh() }
+            }
+        }
+    }
     override init() {
         let configuration = WKWebViewConfiguration(); configuration.websiteDataStore = .default()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         webView = WKWebView(frame: .zero, configuration: configuration)
         let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         file = root.appendingPathComponent("goodreads-shelves.json")
         profileID = UserDefaults.standard.string(forKey: "goodreadsProfileID")
         super.init(); webView.navigationDelegate = self
+        preparePrivacy()
         if let data = try? Data(contentsOf: file), let rows = try? JSONDecoder().decode([GoodreadsBook].self, from: data) { books = rows; status = "Saved Goodreads shelves · refresh to check for changes" }
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in Task { @MainActor in self?.refresh() } }
     }
     func connect() {
         showSignIn = true
+        guard privacyReady else {
+            pendingConnect = true; status = "Preparing Goodreads privacy controls…"; preparePrivacy(); return
+        }
         if webView.url == nil { webView.load(URLRequest(url: URL(string: "https://www.goodreads.com/user/sign_in")!)) }
     }
     func setProfile(_ value: String) {
@@ -36,6 +66,7 @@ import Combine
     func refresh() {
         guard !refreshing else { return }
         guard let profileID else { status = "Connect Goodreads, paste your profile link, or import its library CSV."; return }
+        guard privacyReady else { pendingRefresh = true; preparePrivacy(); return }
         collecting = [:]; page = 1; refreshing = true; status = "Refreshing Goodreads shelves…"
         loadPage(profileID)
     }
@@ -77,12 +108,16 @@ import Combine
         }
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { refreshing = false; status = "Goodreads is unavailable. Your saved shelves are still here." }
-    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = action.request.url else { decisionHandler(.cancel); return }
-        let host = url.host ?? ""
-        decisionHandler(url.scheme == "https" && (host == "goodreads.com" || host.hasSuffix(".goodreads.com") || host == "amazon.com" || host.hasSuffix(".amazon.com")) ? .allow : .cancel)
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                 preferences: WKWebpagePreferences,
+                 decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        guard let url = action.request.url else { decisionHandler(.cancel, preferences); return }
+        let mainFrame = action.targetFrame?.isMainFrame ?? true
+        preferences.allowsContentJavaScript = GoodreadsPrivacy.needsWebsiteScripts(url)
+        decisionHandler(privacyReady && GoodreadsPrivacy.allowsNavigation(url, mainFrame: mainFrame) ? .allow : .cancel, preferences)
     }
     func disconnect() {
+        pendingConnect = false; pendingRefresh = false
         profileID = nil; books = []; collecting = [:]; refreshing = false; webView.stopLoading()
         UserDefaults.standard.removeObject(forKey: "goodreadsProfileID"); try? FileManager.default.removeItem(at: file)
         WKWebsiteDataStore.default().removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { }
@@ -113,4 +148,44 @@ import Combine
             return GoodreadsBook(id: row[id], title: row[title], author: row[author], shelf: shelf.flatMap { row.indices.contains($0) ? row[$0] : nil } ?? "to-read", cover: nil, url: "https://www.goodreads.com/book/show/" + row[id])
         }
     }
+}
+
+
+/// Persistent authentication stays separate from Safari. Shelf pages need no website scripts;
+/// the app's own DOM extraction remains available through evaluateJavaScript.
+enum GoodreadsPrivacy {
+    static func provider(_ host: String) -> Bool {
+        ["goodreads.com", "amazon.com"].contains { host == $0 || host.hasSuffix("." + $0) }
+    }
+    static func captcha(_ url: URL) -> Bool {
+        ["www.google.com", "www.gstatic.com"].contains(url.host?.lowercased() ?? "") && url.path.hasPrefix("/recaptcha/")
+    }
+    static func allowsNavigation(_ url: URL, mainFrame: Bool) -> Bool {
+        url.scheme == "https" && (provider(url.host?.lowercased() ?? "") || (!mainFrame && captcha(url)))
+    }
+    static func needsWebsiteScripts(_ url: URL) -> Bool {
+        guard url.scheme == "https" else { return false }
+        if captcha(url) { return true }
+        guard provider(url.host?.lowercased() ?? "") else { return false }
+        return ["/ap/", "/user/sign_in", "/user/sign_up", "/user/password"].contains { url.path.hasPrefix($0) }
+    }
+    static let rules: String = {
+        var rules: [[String: Any]] = [
+            ["trigger": ["url-filter": ".*", "load-type": ["third-party"]], "action": ["type": "block"]]
+        ]
+        for domain in ["goodreads.com", "gr-assets.com", "amazon.com", "media-amazon.com", "ssl-images-amazon.com"] {
+            let escaped = domain.replacingOccurrences(of: ".", with: #"\."#)
+            for pattern in ["^https://" + escaped + "/", "^https://[^/]+\\." + escaped + "/"] {
+                rules.append(["trigger": ["url-filter": pattern], "action": ["type": "ignore-previous-rules"]])
+            }
+        }
+        for domain in ["www.google.com", "www.gstatic.com"] {
+            let escaped = domain.replacingOccurrences(of: ".", with: #"\."#)
+            rules.append(["trigger": ["url-filter": "^https://" + escaped + "/recaptcha/"], "action": ["type": "ignore-previous-rules"]])
+        }
+        for path in ["ads", "adclick", "adsystem", "analytics"] {
+            rules.append(["trigger": ["url-filter": "^https://[^/]+/" + path + "/"], "action": ["type": "block"]])
+        }
+        return String(data: try! JSONSerialization.data(withJSONObject: rules), encoding: .utf8)!
+    }()
 }
