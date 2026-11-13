@@ -1,0 +1,20 @@
+name: iOS player preview
+on:
+  push:
+    branches: [main, 'feature/ios-player']
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+permissions:
+  contents: read
+jobs:
+  simulator-build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Build native iOS and iPadOS target
+        run: xcodebuild -project ios/Listen.xcodeproj -scheme Listen -sdk iphonesimulator -configuration Debug -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build
+      - name: Test media, conversion, import and progress logic
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if "iPhone" in d["name"]))')
+          xcodebuild -project ios/Listen.xcodeproj -scheme Listen -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath build/ios -only-testing:ListenTests -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 90 CODE_SIGNING_ALLOWED=NO test
