@@ -4,7 +4,7 @@ Checked 13 November 2026 with Xcode 27.2. This is an unsigned developer preview.
 
 | Check | Result |
 | --- | --- |
-| Core XCTest | PASS: 15 passed, 1 explicitly skipped, 0 failures. Tests cover genuine AAC conversion/chapter round trips, import grouping/queuing, recovery bookmark limits and legacy decoding, folder paths, PCM gain limits, rewind bounds, elapsed history, mocked server responses and credential origin restrictions. |
+| Core XCTest | PASS: 16 passed, 1 explicitly skipped, 0 failures. Tests cover genuine AAC conversion/chapter round trips, import grouping/queuing, recovery bookmark limits and legacy decoding, folder paths, PCM gain limits and real audio-tap creation, rewind bounds, elapsed history, mocked server responses and credential origin restrictions. |
 | Keychain token storage | UNVERIFIED on a provisioned device. Unsigned simulator returns `errSecMissingEntitlement` (-34018); only that condition skips its dedicated test. Other Keychain errors still fail. The app reports the error and never falls back to plain-text credentials. |
 | Browser upload | PASS on simulator loopback: unauthenticated rejection, token-authenticated upload, duplicate rejection and stop state. LAN access/Local Network permission needs a physical device. Active connections are canceled at stop; idle timeout and connection/file limits are enforced. |
 | Native iPhone UI | PASS: four flows — library, playback/bookmark/dismissal, Settings and server form. A follow-up playback test also edits and saves bookmark notes after fixing a sheet presentation race. Real screenshots refreshed. |
@@ -16,6 +16,8 @@ Checked 13 November 2026 with Xcode 27.2. This is an unsigned developer preview.
 | REA provenance | PASS: installed BookPlayer 6.0.1 (192) inspected read-only; public evidence summary committed, raw resource dump excluded. |
 
 The SDK's App Intents training tool logs “Could not archive SSU artifacts” while the build succeeds and intent metadata is emitted. Spoken Siri invocation is therefore **UNVERIFIED**, not treated as a successful runtime check.
+
+The hosted runner exposed an older-SDK CF ownership import difference in `MTAudioProcessingTapCreate`; both managed and Unmanaged API shapes are now supported. CarPlay delegate callbacks explicitly forward to the main actor. The packaged Simulator ZIP also passed extraction, installation and normal app launch on iPad.
 
 Still required before a public device release: a real signing team, App Group/iCloud provisioning, Keychain and share/widget checks on hardware, authenticated Goodreads and media-server accounts, two-device iCloud conflicts/transfers, background/headphone/lock-screen routes, long books/storage pressure, localization and a full assistive-technology audit. CarPlay remains disabled until its approved capability is configured and tested. Apple Watch and complete BookPlayer parity are not included. No live service or entitlement approval is implied by mocks or compiled code.
 
