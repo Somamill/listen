@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreAudio
 import MediaToolbox
 
 /// Per-player PCM gain; never changes the system volume. Float output is peak limited.

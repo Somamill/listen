@@ -1,7 +1,7 @@
-name: iOS player preview
+name: Native players
 on:
   push:
-    branches: [main, 'feature/ios-player']
+    branches: [main, 'feature/ios-player', 'feature/app-store']
     paths: ['ios/**', '.github/workflows/ios.yml']
   pull_request:
     paths: ['ios/**', '.github/workflows/ios.yml']
@@ -23,3 +23,13 @@ jobs:
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcodebuild -project ios/Listen.xcodeproj -scheme Listen -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath build/ios -only-testing:ListenTests -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 90 CODE_SIGNING_ALLOWED=NO test
+
+  catalyst-build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Build sandboxed Mac player without signing
+        run: xcodebuild -project ios/Listen.xcodeproj -scheme Listen -configuration Release -destination 'generic/platform=macOS,variant=Mac Catalyst' -derivedDataPath build/catalyst CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Verify Mac audio, extensions and privacy manifest
+        run: python3 ios/scripts/check_bundle.py 'build/catalyst/Build/Products/Release-maccatalyst/listen Player.app'

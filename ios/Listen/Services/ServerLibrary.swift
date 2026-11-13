@@ -126,7 +126,7 @@ struct MediaServerAPI {
       let defaults = UserDefaults.standard
       let deviceID = defaults.string(forKey: "mediaServerDeviceID") ?? UUID().uuidString
       defaults.set(deviceID, forKey: "mediaServerDeviceID")
-      var authorization = "MediaBrowser Client=\"listen.\", Device=\"iOS\", DeviceId=\"\(deviceID)\", Version=\"0.2.0\""
+      var authorization = "MediaBrowser Client=\"listen.\", Device=\"iOS\", DeviceId=\"\(deviceID)\", Version=\"\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")\""
       if !token.isEmpty {
         guard !token.contains("\"") && !token.contains("\r") && !token.contains("\n") else { throw ListenError.message("The server token contains invalid characters.") }
         authorization += ", Token=\"\(token)\""

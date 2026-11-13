@@ -80,7 +80,7 @@ struct SettingsView: View {
             goodreads.books.isEmpty && goodreads.profileID == nil)
         }
         Section("About listen.") {
-          LabeledContent("Version", value: "0.2.0 · iOS preview")
+          LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
           Text("Part of dot.").font(.headline)
           Text("A quieter way to read, listen, and learn.").foregroundStyle(.secondary)
           Link("Source & setup", destination: URL(string: "https://github.com/Somamill/listen")!)

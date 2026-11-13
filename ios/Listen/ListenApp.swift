@@ -10,7 +10,11 @@ import SwiftUI
   @Environment(\.scenePhase) private var phase
   @AppStorage("appearance") private var appearance = "system"
   init() {
+    #if DEBUG
     let testing = ProcessInfo.processInfo.arguments.contains("--uitesting")
+    #else
+    let testing = false
+    #endif
     let root =
       testing
       ? FileManager.default.temporaryDirectory.appendingPathComponent("listen-ui-tests") : nil

@@ -100,6 +100,8 @@
 		05BC88611481300A4834F2BF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		076CBE22A94EA222EC00FCFC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		0A7D4509CB54D26511591EC9 /* MetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataService.swift; sourceTree = "<group>"; };
+		168ED5809237D5EC43B65165 /* ListenWidgetsMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenWidgetsMac.entitlements; sourceTree = "<group>"; };
+		16E6F178F7BE18EE530139A0 /* ListenShareMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenShareMac.entitlements; sourceTree = "<group>"; };
 		1B1498DD292F0113D9711592 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		1E55B0EEE134AAC1D8CB421F /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
 		200454E036AA81F515B71D90 /* ParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParityTests.swift; sourceTree = "<group>"; };
@@ -132,6 +134,7 @@
 		BD50CACCB6617D0A29674DEF /* ListenWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenWidgets.swift; sourceTree = "<group>"; };
 		C67E54EAB937B1194788B983 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		D65A1E933457F9B8F7C04889 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
+		D91973BA7B1040F276DD4E99 /* ListenMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenMac.entitlements; sourceTree = "<group>"; };
 		E53DDA91044A951CA68F8BE9 /* ListenWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenWidgets.entitlements; sourceTree = "<group>"; };
 		E5696A6512990D14000CAA05 /* TransferViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferViews.swift; sourceTree = "<group>"; };
 		E62D0CAC363E1BB5DB26DE76 /* ListenTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ListenTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -169,6 +172,7 @@
 				47A708AFDE4B80F983FAD777 /* Info.plist */,
 				E53DDA91044A951CA68F8BE9 /* ListenWidgets.entitlements */,
 				BD50CACCB6617D0A29674DEF /* ListenWidgets.swift */,
+				168ED5809237D5EC43B65165 /* ListenWidgetsMac.entitlements */,
 			);
 			path = ListenWidgets;
 			sourceTree = "<group>";
@@ -178,6 +182,7 @@
 			children = (
 				6A959528AD2BE363F46E1384 /* Info.plist */,
 				2EB36F8F326FFEDA488BB3BD /* ListenShare.entitlements */,
+				16E6F178F7BE18EE530139A0 /* ListenShareMac.entitlements */,
 				C67E54EAB937B1194788B983 /* ShareViewController.swift */,
 			);
 			path = ListenShare;
@@ -189,6 +194,7 @@
 				F3C8EACD514E2BD1AE3059E0 /* Info.plist */,
 				4B55417DDEB20A7CD5ED736C /* Listen.entitlements */,
 				593615BF7E800AB3CE804232 /* ListenApp.swift */,
+				D91973BA7B1040F276DD4E99 /* ListenMac.entitlements */,
 				B8D7BE50458E0F2C6326AE87 /* Models */,
 				C6A62DB891BC52E7C5C46984 /* Resources */,
 				DCECEC3D783D87461E5913EB /* Services */,
@@ -611,7 +617,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -626,7 +632,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -658,15 +664,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ListenWidgets/ListenWidgets.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = ListenWidgets/ListenWidgetsMac.entitlements;
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				INFOPLIST_FILE = ListenWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.somamill.listen.mobile.widgets;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "$(LISTEN_IOS_PROFILE_WIDGET)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "$(LISTEN_MAC_PROFILE_WIDGET)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -705,7 +717,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -726,7 +738,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -775,15 +787,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ListenWidgets/ListenWidgets.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = ListenWidgets/ListenWidgetsMac.entitlements;
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				INFOPLIST_FILE = ListenWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.somamill.listen.mobile.widgets;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "$(LISTEN_IOS_PROFILE_WIDGET)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "$(LISTEN_MAC_PROFILE_WIDGET)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -793,16 +811,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Listen/Listen.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Listen/ListenMac.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Listen/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.somamill.listen.mobile;
+				"PRODUCT_NAME[sdk=macosx*]" = "listen Player";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "$(LISTEN_IOS_PROFILE_APP)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "$(LISTEN_MAC_PROFILE_APP)";
 				SDKROOT = iphoneos;
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -812,16 +836,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Listen/Listen.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Listen/ListenMac.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Listen/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.somamill.listen.mobile;
+				"PRODUCT_NAME[sdk=macosx*]" = "listen Player";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "$(LISTEN_IOS_PROFILE_APP)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "$(LISTEN_MAC_PROFILE_APP)";
 				SDKROOT = iphoneos;
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -830,15 +860,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ListenShare/ListenShare.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = ListenShare/ListenShareMac.entitlements;
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				INFOPLIST_FILE = ListenShare/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.somamill.listen.mobile.share;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "$(LISTEN_IOS_PROFILE_SHARE)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "$(LISTEN_MAC_PROFILE_SHARE)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -847,15 +883,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ListenShare/ListenShare.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = ListenShare/ListenShareMac.entitlements;
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				INFOPLIST_FILE = ListenShare/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.somamill.listen.mobile.share;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "$(LISTEN_IOS_PROFILE_SHARE)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "$(LISTEN_MAC_PROFILE_SHARE)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
