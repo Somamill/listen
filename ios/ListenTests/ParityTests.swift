@@ -60,6 +60,13 @@ import ZIPFoundation
         samples.withUnsafeMutableBufferPointer { VolumeBoost.process($0.baseAddress!, count: $0.count, gain: 2) }
         XCTAssertEqual(samples, [-1, -0.4, 0, 0.6, 1])
     }
+    func testVolumeBoostTapCanBeConfigured() async throws {
+        let sample = try XCTUnwrap(Bundle.main.url(forResource: "Sample", withExtension: "mp3"))
+        let tracks = try await AVURLAsset(url: sample).loadTracks(withMediaType: .audio)
+        let track = try XCTUnwrap(tracks.first)
+        let mix = try VolumeBoost.mix(track: track)
+        XCTAssertNotNil(mix.inputParameters.first?.audioTapProcessor)
+    }
     func testServerOriginPolicyAndCredentialStorage() throws {
         for value in ["http://books.example", "https://name:secret@books.example", "https://books.example/?token=x"] { XCTAssertThrowsError(try MediaServerAPI.validated(value)) }
         let base = URL(string: "https://books.example/library")!

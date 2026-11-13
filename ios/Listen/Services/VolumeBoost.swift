@@ -43,10 +43,20 @@ final class VolumeBoost {
             count: Int(buffer.mDataByteSize) / MemoryLayout<Float>.size, gain: context.gain)
         }
       })
+    let status: OSStatus
+    let tap: MTAudioProcessingTap?
+    #if compiler(>=6.4)
+    // Current SDK imports the retained CF result as a managed Swift reference.
     var output: MTAudioProcessingTap?
-    let status = MTAudioProcessingTapCreate(
-      kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &output)
-    guard status == noErr, let tap = output else {
+    status = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &output)
+    tap = output
+    #else
+    // Earlier SDKs expose the retained CF result through Unmanaged.
+    var output: Unmanaged<MTAudioProcessingTap>?
+    status = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &output)
+    tap = output?.takeRetainedValue()
+    #endif
+    guard status == noErr, let tap else {
       retained.release()
       throw ListenError.message("Volume boost could not be configured for this audio.")
     }

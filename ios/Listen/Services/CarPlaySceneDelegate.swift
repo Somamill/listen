@@ -3,17 +3,16 @@ import CarPlay
 /// Optional Apple-approved CarPlay capability. No entitlement bypass is attempted.
 @MainActor final class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate {
   private var controller: CPInterfaceController?
-  func templateApplicationScene(
+  nonisolated func templateApplicationScene(
     _ templateApplicationScene: CPTemplateApplicationScene,
     didConnect interfaceController: CPInterfaceController
   ) {
-    controller = interfaceController
-    showLibrary()
+    Task { @MainActor [weak self] in self?.controller = interfaceController; self?.showLibrary() }
   }
-  func templateApplicationScene(
+  nonisolated func templateApplicationScene(
     _ templateApplicationScene: CPTemplateApplicationScene,
     didDisconnectInterfaceController interfaceController: CPInterfaceController
-  ) { controller = nil }
+  ) { Task { @MainActor [weak self] in self?.controller = nil } }
   private func showLibrary() {
     let books = MobileCompanionBridge.store?.books.filter { !$0.state.finished } ?? []
     let items = books.prefix(100).map { book -> CPListItem in
