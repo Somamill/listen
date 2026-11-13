@@ -67,3 +67,7 @@ Goodreads can expire sessions, block embedded third-party sign-in, or change its
 ## Before distribution
 
 Use a real development/distribution team, provision the container, verify account flows, audit the privacy manifest and Apple Books/Goodreads network disclosures, exercise large libraries and real headphones/background audio, and prepare App Store screenshots and accessibility/localization checks. No App Store eligibility or review outcome is promised. All bundled sample audio is a generated test tone, not an audiobook.
+
+## Package a preview
+
+After a successful Simulator build, run `python3 ios/scripts/package_preview.py /path/to/Listen.app /tmp/listen-preview`. The script checks the sample checksum and all extension executables, packages tracked mobile source plus an arm64 Simulator app, excludes XCTest plug-ins, and writes checksums and installation instructions. It does not create a signed IPA.

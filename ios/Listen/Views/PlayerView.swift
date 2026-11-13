@@ -134,7 +134,6 @@ struct PlayerView: View {
         }.background(ListenTheme.background)
           .sheet(isPresented: $queue) { PlaybackQueueView() }
           .sheet(isPresented: $customSleep) { SleepTimerEditor() }
-          .sheet(item: $editedBookmark) { mark in BookmarkEditor(bookID: book.id, mark: mark) }
           .sheet(isPresented: $chapters) {
             NavigationStack {
               List(book.chapters) { chapter in
@@ -165,9 +164,9 @@ struct PlayerView: View {
                         systemImage: mark.kind == nil ? "bookmark" : "clock.arrow.circlepath")
                       Text(timeLabel(mark.position)).font(.caption).foregroundStyle(.secondary)
                     }
-                  }.swipeActions(edge: .leading) {
+                  }.accessibilityIdentifier(mark.kind == nil ? "userBookmark" : "recoveryBookmark")
+                  .swipeActions(edge: .leading) {
                     Button("Edit note") {
-                      bookmarks = false
                       editedBookmark = mark
                     }
                   }
@@ -177,8 +176,8 @@ struct PlayerView: View {
                   changed.metadataUpdatedAt = Date()
                   store.update(changed)
                 }
-              }.navigationTitle("Bookmarks").toolbar { Button("Done") { bookmarks = false } }
-            }
+              }.navigationTitle("Bookmarks").toolbar { Button("Done") { bookmarks = false }.accessibilityIdentifier("closeBookmarks") }
+            }.sheet(item: $editedBookmark) { mark in BookmarkEditor(bookID: book.id, mark: mark) }
           }
       } else {
         ContentUnavailableView("Choose an audiobook", systemImage: "headphones")

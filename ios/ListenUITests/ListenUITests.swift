@@ -9,6 +9,16 @@ final class ListenUITests:XCTestCase {
         let start=app.buttons["startListening"];XCTAssertTrue(start.waitForExistence(timeout:10));start.tap()
         let play=app.buttons["playerPlayPause"];XCTAssertTrue(play.waitForExistence(timeout:15))
         app.buttons["addBookmark"].tap();XCTAssertTrue(app.staticTexts["bookmarkSaved"].waitForExistence(timeout:5))
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Bookmarks (")).firstMatch.tap()
+        let mark = app.buttons["userBookmark"].firstMatch
+        XCTAssertTrue(mark.waitForExistence(timeout: 10)); mark.swipeRight()
+        app.buttons["Edit note"].tap()
+        let note = app.descendants(matching: .any).matching(identifier: "bookmarkNote").firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 10)); note.tap(); note.typeText(" My test note")
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["userBookmark"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["userBookmark"].firstMatch.label.contains("My test note"))
+        app.buttons["closeBookmarks"].tap()
         let playerShot = XCTAttachment(screenshot: app.screenshot()); playerShot.name = "Player"; playerShot.lifetime = .keepAlways; add(playerShot)
         play.tap();app.buttons["closePlayer"].tap()
         XCTAssertTrue(app.buttons["startListening"].waitForExistence(timeout:10))

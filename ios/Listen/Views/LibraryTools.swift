@@ -114,7 +114,7 @@ struct BookmarkEditor: View {
   var body: some View {
     NavigationStack {
       Form {
-        TextField("Bookmark note", text: $note, axis: .vertical)
+        TextField("Bookmark note", text: $note, axis: .vertical).accessibilityIdentifier("bookmarkNote")
         Text(timeLabel(mark.position)).foregroundStyle(.secondary)
       }.navigationTitle("Bookmark note").toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
